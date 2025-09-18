@@ -1,4 +1,4 @@
-use rust_kickstart::create_app_with_pool;
+use rust_kickstart::{create_app_with_pool, UserService, BankService, CreateUser, User};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tracing::info;
@@ -8,6 +8,7 @@ pub struct TestContext {
     pub app: axum::Router,
     pub schema_name: String,
     pub pool: PgPool,
+    pub test_pool: PgPool,
 }
 
 impl TestContext {
@@ -62,6 +63,7 @@ impl TestContext {
             app,
             schema_name,
             pool: admin_pool, // Keep admin pool for cleanup
+            test_pool,
         }
     }
 
@@ -82,6 +84,38 @@ impl TestContext {
             .expect("Failed to run migrations in test schema");
 
         info!("Migrations completed for schema: {}", schema_name);
+    }
+
+    /// Creates a UserService instance using the test database pool
+    pub fn create_user_service(&self) -> UserService {
+        UserService::new(self.test_pool.clone())
+    }
+
+    /// Creates a BankService instance using the test database pool
+    pub fn create_bank_service(&self) -> BankService {
+        let user_service = self.create_user_service();
+        BankService::new(user_service)
+    }
+
+    /// Creates both UserService and BankService instances for convenience
+    pub fn create_services(&self) -> (UserService, BankService) {
+        let user_service = self.create_user_service();
+        let bank_service = BankService::new(user_service.clone());
+        (user_service, bank_service)
+    }
+
+    /// Helper method to create a test user with default values
+    pub async fn create_test_user(&self, name: &str, age: i32) -> User {
+        let user_service = self.create_user_service();
+        let create_user_data = CreateUser {
+            name: name.to_string(),
+            age,
+        };
+        
+        user_service
+            .create_user(create_user_data)
+            .await
+            .expect("Failed to create test user")
     }
 
     #[allow(clippy::print_stderr)]

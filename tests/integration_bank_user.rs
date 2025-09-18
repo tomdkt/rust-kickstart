@@ -5,44 +5,14 @@
 
 mod common;
 
-use rust_kickstart::{UserService, BankService, BankError, CreateUser};
+use rust_kickstart::{BankError, CreateUser};
 use common::TestContext;
-use sqlx::postgres::PgPoolOptions;
-
-/// Helper function to create services with test database
-async fn create_test_services() -> (UserService, BankService, TestContext) {
-    let ctx = TestContext::new().await;
-    
-    // Create a new pool with the same configuration as TestContext
-    dotenvy::dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    
-    let schema_name = ctx.schema_name.clone();
-    let test_pool = PgPoolOptions::new()
-        .max_connections(5)
-        .after_connect(move |conn, _meta| {
-            let schema = schema_name.clone();
-            Box::pin(async move {
-                sqlx::query(&format!("SET search_path TO {schema}, public"))
-                    .execute(conn)
-                    .await?;
-                Ok(())
-            })
-        })
-        .connect(&database_url)
-        .await
-        .expect("Failed to create test pool");
-    
-    let user_service = UserService::new(test_pool);
-    let bank_service = BankService::new(user_service.clone());
-    
-    (user_service, bank_service, ctx)
-}
 
 #[tokio::test]
 async fn test_bank_user_integration() {
     // Setup test services with isolated database
-    let (user_service, bank_service, ctx) = create_test_services().await;
+    let ctx = TestContext::new().await;
+    let (user_service, bank_service) = ctx.create_services();
     
     // Test data
     let create_user_data = CreateUser {
@@ -104,7 +74,8 @@ async fn test_bank_user_integration() {
 #[tokio::test]
 async fn test_bank_service_with_nonexistent_user() {
     // Setup test services with isolated database
-    let (_user_service, bank_service, ctx) = create_test_services().await;
+    let ctx = TestContext::new().await;
+    let bank_service = ctx.create_bank_service();
     
     // Try to create account for non-existent user
     let result = bank_service.create_account(99999, 10.00).await;
@@ -127,7 +98,8 @@ async fn test_bank_service_with_nonexistent_user() {
 #[tokio::test]
 async fn test_bank_service_update_account_holder() {
     // Setup test services with isolated database
-    let (user_service, bank_service, ctx) = create_test_services().await;
+    let ctx = TestContext::new().await;
+    let (user_service, bank_service) = ctx.create_services();
     
     // Create a user
     let create_user_data = CreateUser {
