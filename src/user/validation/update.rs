@@ -1,4 +1,4 @@
-//! UpdateUser validation logic
+//! `UpdateUser` validation logic
 //! 
 //! Contains validation rules specific to user update operations.
 
@@ -25,18 +25,16 @@ pub fn validate_update_user_with_context(
     }
     
     // Validate name if provided
-    if let Some(ref name) = user.name {
-        if let Err(mut errors) = validate_name(name, "name") {
+    if let Some(ref name) = user.name
+        && let Err(mut errors) = validate_name(name, "name") {
             all_errors.append(&mut errors);
         }
-    }
     
     // Validate age if provided
-    if let Some(age) = user.age {
-        if let Err(mut errors) = validate_age(age, "age") {
+    if let Some(age) = user.age
+        && let Err(mut errors) = validate_age(age, "age") {
         all_errors.append(&mut errors);
         }
-    }
     
     // Additional update-specific validations can be added here
     // For example, checking if the update would create duplicates, etc.
@@ -56,18 +54,16 @@ pub fn validate_partial_update_user(user: &UpdateUser) -> ValidationResult {
     // This is useful for conditional updates or when combined with other operations
     
     // Validate name if provided
-    if let Some(ref name) = user.name {
-        if let Err(mut errors) = validate_name(name, "name") {
+    if let Some(ref name) = user.name
+        && let Err(mut errors) = validate_name(name, "name") {
             all_errors.append(&mut errors);
         }
-    }
     
     // Validate age if provided
-    if let Some(age) = user.age {
-        if let Err(mut errors) = validate_age(age, "age") {
+    if let Some(age) = user.age
+        && let Err(mut errors) = validate_age(age, "age") {
             all_errors.append(&mut errors);
         }
-    }
     
     if all_errors.is_empty() {
         Ok(())

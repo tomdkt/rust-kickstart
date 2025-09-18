@@ -18,7 +18,7 @@ pub fn validate_name(name: &str, field_name: &str) -> ValidationResult {
     }
     
     // Additional name validation rules can be added here
-    if name.chars().any(|c| c.is_numeric()) {
+    if name.chars().any(char::is_numeric) {
         errors.push(field_error(field_name, "Name cannot contain numbers"));
     }
     
@@ -58,7 +58,7 @@ pub fn validate_allowed_characters(value: &str, field_name: &str, allowed_chars:
     if value.chars().all(|c| allowed_chars.contains(c) || c.is_alphabetic() || c.is_whitespace()) {
         Ok(())
     } else {
-        Err(vec![field_error(field_name, format!("Field contains invalid characters. Allowed: {}", allowed_chars))])
+        Err(vec![field_error(field_name, format!("Field contains invalid characters. Allowed: {allowed_chars}"))])
     }
 }
 
@@ -67,7 +67,7 @@ pub fn validate_min_length(value: &str, field_name: &str, min_length: usize) -> 
     if value.len() >= min_length {
         Ok(())
     } else {
-        Err(vec![field_error(field_name, format!("Field must be at least {} characters long", min_length))])
+        Err(vec![field_error(field_name, format!("Field must be at least {min_length} characters long"))])
     }
 }
 
@@ -76,25 +76,25 @@ pub fn validate_max_length(value: &str, field_name: &str, max_length: usize) -> 
     if value.len() <= max_length {
         Ok(())
     } else {
-        Err(vec![field_error(field_name, format!("Field cannot exceed {} characters", max_length))])
+        Err(vec![field_error(field_name, format!("Field cannot exceed {max_length} characters"))])
     }
 }
 
 /// Validates a range for numeric values
 pub fn validate_range<T: PartialOrd + std::fmt::Display>(
-    value: T, 
+    value: &T, 
     field_name: &str, 
-    min: T, 
-    max: T
+    min: &T, 
+    max: &T
 ) -> ValidationResult {
     let mut errors = Vec::new();
     
     if value < min {
-        errors.push(field_error(field_name, format!("Value must be at least {}", min)));
+        errors.push(field_error(field_name, format!("Value must be at least {min}")));
     }
     
     if value > max {
-        errors.push(field_error(field_name, format!("Value cannot exceed {}", max)));
+        errors.push(field_error(field_name, format!("Value cannot exceed {max}")));
     }
     
     if errors.is_empty() {
@@ -235,14 +235,14 @@ mod tests {
 
     #[test]
     fn test_validate_range_valid() {
-        assert!(validate_range(5, "field", 1, 10).is_ok());
-        assert!(validate_range(1, "field", 1, 10).is_ok());
-        assert!(validate_range(10, "field", 1, 10).is_ok());
+        assert!(validate_range(&5, "field", &1, &10).is_ok());
+        assert!(validate_range(&1, "field", &1, &10).is_ok());
+        assert!(validate_range(&10, "field", &1, &10).is_ok());
     }
 
     #[test]
     fn test_validate_range_below_min() {
-        let result = validate_range(0, "field", 1, 10);
+        let result = validate_range(&0, "field", &1, &10);
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert!(errors.iter().any(|e| e.message.contains("at least 1")));
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_validate_range_above_max() {
-        let result = validate_range(11, "field", 1, 10);
+        let result = validate_range(&11, "field", &1, &10);
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert!(errors.iter().any(|e| e.message.contains("cannot exceed 10")));
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_validate_range_both_errors() {
-        let result = validate_range(-5, "field", 1, 10);
+        let result = validate_range(&-5, "field", &1, &10);
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert_eq!(errors.len(), 1); // Only min error since -5 < 1

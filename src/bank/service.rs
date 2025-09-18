@@ -1,7 +1,7 @@
 //! Bank service - demonstrates inter-module communication
 //! 
-//! This service shows how the bank module can use UserService
-//! but cannot directly access UserRepository.
+//! This service shows how the bank module can use `UserService`
+//! but cannot directly access `UserRepository`.
 
 use tracing::{info, warn};
 
@@ -15,8 +15,8 @@ pub struct BankService {
 }
 
 impl BankService {
-    /// Creates a new BankService instance
-    pub fn new(user_service: UserService) -> Self {
+    /// Creates a new `BankService` instance
+    #[must_use] pub fn new(user_service: UserService) -> Self {
         Self { user_service }
     }
 
@@ -29,7 +29,7 @@ impl BankService {
             Ok(true) => {
                 // User exists, create account
                 info!(user_id, "BankService: User exists, creating account");
-                Ok(format!("Account created for user {} with balance ${:.2}", user_id, initial_balance))
+                Ok(format!("Account created for user {user_id} with balance ${initial_balance:.2}"))
             }
             Ok(false) => {
                 warn!(user_id, "BankService: User not found, cannot create account");
@@ -55,7 +55,7 @@ impl BankService {
                     user_name: user.name,
                     user_age: user.age,
                     account_balance: 1000.0, // Mock balance
-                    account_status: "Active".to_string(),
+                    account_status: "Active".to_owned(),
                 })
             }
             Err(UserError::NotFound) => {
@@ -69,7 +69,7 @@ impl BankService {
         }
     }
 
-    /// Updates account holder information (delegates to UserService)
+    /// Updates account holder information (delegates to `UserService`)
     pub async fn update_account_holder(&self, user_id: i32, new_name: Option<String>) -> Result<User, BankError> {
         info!(user_id, ?new_name, "BankService: Updating account holder information");
 

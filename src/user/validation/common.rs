@@ -18,12 +18,12 @@ pub struct ValidationContext {
 
 impl ValidationContext {
     /// Creates a new validation context
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
     
     /// Creates a strict validation context
-    pub fn strict() -> Self {
+    #[must_use] pub fn strict() -> Self {
         Self {
             strict: true,
             ..Default::default()
@@ -31,6 +31,7 @@ impl ValidationContext {
     }
     
     /// Adds metadata to the context
+    #[must_use]
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
@@ -41,7 +42,7 @@ impl ValidationContext {
 pub fn validation_error(message: impl Into<String>, field: Option<impl Into<String>>) -> ValidationError {
     ValidationError {
         message: message.into(),
-        field: field.map(|f| f.into()),
+        field: field.map(std::convert::Into::into),
     }
 }
 

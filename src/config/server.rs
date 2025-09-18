@@ -13,19 +13,19 @@ pub struct ServerConfig {
 
 impl ServerConfig {
     /// Load server configuration from environment variables
-    pub fn load() -> Self {
+    #[must_use] pub fn load() -> Self {
         Self {
             host: env::var("SERVER_HOST")
-                .unwrap_or_else(|_| "0.0.0.0".to_string()),
+                .unwrap_or_else(|_| "0.0.0.0".to_owned()),
             port: env::var("SERVER_PORT")
-                .unwrap_or_else(|_| "3000".to_string())
+                .unwrap_or_else(|_| "3000".to_owned())
                 .parse()
                 .unwrap_or(3000),
         }
     }
 
     /// Get server address as string
-    pub fn address(&self) -> String {
+    #[must_use] pub fn address(&self) -> String {
         format!("{}:{}", self.host, self.port)
     }
 }

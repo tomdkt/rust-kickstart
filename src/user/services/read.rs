@@ -24,12 +24,9 @@ impl ReadUserService {
     ) -> Result<User, UserError> {
         info!(user_id = id, "ReadUserService: Fetching user by ID");
 
-        match repository.find_by_id(id).await? {
-            Some(user) => Ok(user),
-            None => {
-                warn!(user_id = id, "ReadUserService: User not found");
-                Err(UserError::NotFound)
-            }
+        if let Some(user) = repository.find_by_id(id).await? { Ok(user) } else {
+            warn!(user_id = id, "ReadUserService: User not found");
+            Err(UserError::NotFound)
         }
     }
 }

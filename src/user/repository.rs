@@ -1,7 +1,7 @@
 //! User repository - handles database operations
 //! 
 //! This module is private to the user module and cannot be accessed directly
-//! by other modules. All database access must go through UserService.
+//! by other modules. All database access must go through `UserService`.
 
 use sqlx::PgPool;
 use tracing::{error, info, warn};
@@ -15,7 +15,7 @@ pub(super) struct UserRepository {
 }
 
 impl UserRepository {
-    /// Creates a new UserRepository instance
+    /// Creates a new `UserRepository` instance
     pub(super) fn new(pool: PgPool) -> Self {
         Self { pool }
     }
@@ -86,9 +86,7 @@ impl UserRepository {
         // Use existing values if not provided in update, trim name if provided
         let name = user_data
             .name
-            .as_ref()
-            .map(|n| n.trim().to_owned())
-            .unwrap_or_else(|| existing_user.name.clone());
+            .as_ref().map_or_else(|| existing_user.name.clone(), |n| n.trim().to_owned());
         let age = user_data.age.unwrap_or(existing_user.age);
 
         let updated_user = sqlx::query_as!(
@@ -130,4 +128,5 @@ impl UserRepository {
 
         Ok(deleted)
     }
+
 }

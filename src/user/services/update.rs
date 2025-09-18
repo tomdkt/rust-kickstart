@@ -27,12 +27,9 @@ impl UpdateUserService {
         }
 
         // First check if user exists
-        let existing_user = match repository.find_by_id(id).await? {
-            Some(user) => user,
-            None => {
-                warn!(user_id = id, "UpdateUserService: User not found for update");
-                return Err(UserError::NotFound);
-            }
+        let Some(existing_user) = repository.find_by_id(id).await? else {
+            warn!(user_id = id, "UpdateUserService: User not found for update");
+            return Err(UserError::NotFound);
         };
 
         // Delegate to repository

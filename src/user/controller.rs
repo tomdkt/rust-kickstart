@@ -12,7 +12,7 @@ use axum::{
 use tracing::{error, warn};
 
 use super::domain::{User, CreateUser, UpdateUser, ValidationErrorResponse, ApiResponse, UserError};
-use super::service::UserService;
+
 
 /// HTTP handler for creating a new user
 #[utoipa::path(
@@ -27,9 +27,10 @@ use super::service::UserService;
     )
 )]
 pub async fn create_user_handler(
-    State(user_service): State<UserService>,
+    State(app_state): State<crate::AppState>,
     Json(payload): Json<CreateUser>,
 ) -> impl IntoResponse {
+    let user_service = app_state.user_service;
     match user_service.create_user(payload).await {
         Ok(user) => (StatusCode::OK, Json(user)).into_response(),
         Err(UserError::ValidationError(errors)) => {
@@ -61,8 +62,9 @@ pub async fn create_user_handler(
     )
 )]
 pub async fn get_all_users_handler(
-    State(user_service): State<UserService>,
+    State(app_state): State<crate::AppState>,
 ) -> impl IntoResponse {
+    let user_service = app_state.user_service;
     match user_service.get_all_users().await {
         Ok(users) => (StatusCode::OK, Json(users)).into_response(),
         Err(UserError::DatabaseError(msg)) => {
@@ -91,9 +93,10 @@ pub async fn get_all_users_handler(
     )
 )]
 pub async fn get_user_by_id_handler(
-    State(user_service): State<UserService>,
+    State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
 ) -> impl IntoResponse {
+    let user_service = app_state.user_service;
     match user_service.get_user_by_id(id).await {
         Ok(user) => (StatusCode::OK, Json(user)).into_response(),
         Err(UserError::NotFound) => {
@@ -128,10 +131,11 @@ pub async fn get_user_by_id_handler(
     )
 )]
 pub async fn update_user_handler(
-    State(user_service): State<UserService>,
+    State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateUser>,
 ) -> impl IntoResponse {
+    let user_service = app_state.user_service;
     match user_service.update_user(id, payload).await {
         Ok(user) => (StatusCode::OK, Json(user)).into_response(),
         Err(UserError::ValidationError(errors)) => {
@@ -167,9 +171,10 @@ pub async fn update_user_handler(
     )
 )]
 pub async fn delete_user_handler(
-    State(user_service): State<UserService>,
+    State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
 ) -> impl IntoResponse {
+    let user_service = app_state.user_service;
     match user_service.delete_user(id).await {
         Ok(response) => (StatusCode::OK, Json(response)).into_response(),
         Err(UserError::NotFound) => {

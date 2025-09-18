@@ -1,4 +1,4 @@
-//! CreateUser validation logic
+//! `CreateUser` validation logic
 //! 
 //! Contains validation rules specific to user creation operations.
 

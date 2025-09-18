@@ -39,11 +39,17 @@ SQLx with compile-time checking. Always commit `.sqlx/` directory.
 
 ## API Endpoints
 
+### User Management
 - `POST /users` - Create user
 - `GET /users` - List users
 - `GET /users/{id}` - Get user
 - `PUT /users/{id}` - Update user
 - `DELETE /users/{id}` - Delete user
+
+### Health Monitoring
+- `GET /health` - Complete health check (application + database)
+- `GET /ready` - Readiness probe (Kubernetes-compatible)
+- `GET /live` - Liveness probe (application only)
 
 ## Requirements
 

@@ -22,8 +22,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    /// Creates a new UserService instance
-    pub fn new(pool: PgPool) -> Self {
+    /// Creates a new `UserService` instance
+    #[must_use] pub fn new(pool: PgPool) -> Self {
         Self {
             repository: UserRepository::new(pool),
         }
@@ -63,4 +63,5 @@ impl UserService {
     pub async fn get_user_name(&self, id: i32) -> Result<String, UserError> {
         UserUtilsService::get_user_name(&self.repository, id).await
     }
+
 }
