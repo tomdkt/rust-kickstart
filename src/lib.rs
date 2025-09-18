@@ -38,10 +38,21 @@ pub struct ApiResponse {
     pub message: String,
 }
 
+#[derive(Serialize, ToSchema, Debug)]
+pub struct ValidationError {
+    pub message: String,
+    pub field: Option<String>,
+}
+
+#[derive(Serialize, ToSchema, Debug)]
+pub struct ValidationErrorResponse {
+    pub errors: Vec<ValidationError>,
+}
+
 #[derive(OpenApi)]
 #[openapi(
     paths(create_user, get_all_users, get_user_by_id, update_user, delete_user),
-    components(schemas(CreateUser, UpdateUser, User, ApiResponse)),
+    components(schemas(CreateUser, UpdateUser, User, ApiResponse, ValidationError, ValidationErrorResponse)),
     tags(
         (name = "users", description = "User management operations")
     ),
@@ -52,6 +63,99 @@ pub struct ApiResponse {
     )
 )]
 struct ApiDoc;
+
+// Validation functions
+fn validate_create_user(user: &CreateUser) -> Result<(), Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    // Validate name
+    if user.name.trim().is_empty() {
+        errors.push(ValidationError {
+            message: "Name cannot be empty".to_string(),
+            field: Some("name".to_string()),
+        });
+    }
+
+    if user.name.len() > 100 {
+        errors.push(ValidationError {
+            message: "Name cannot exceed 100 characters".to_string(),
+            field: Some("name".to_string()),
+        });
+    }
+
+    // Validate age
+    if user.age < 0 {
+        errors.push(ValidationError {
+            message: "Age cannot be negative".to_string(),
+            field: Some("age".to_string()),
+        });
+    }
+
+    if user.age > 150 {
+        errors.push(ValidationError {
+            message: "Age cannot exceed 150 years".to_string(),
+            field: Some("age".to_string()),
+        });
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
+    let mut errors = Vec::new();
+
+    // Validate name if provided
+    if let Some(ref name) = user.name {
+        if name.trim().is_empty() {
+            errors.push(ValidationError {
+                message: "Name cannot be empty".to_string(),
+                field: Some("name".to_string()),
+            });
+        }
+
+        if name.len() > 100 {
+            errors.push(ValidationError {
+                message: "Name cannot exceed 100 characters".to_string(),
+                field: Some("name".to_string()),
+            });
+        }
+    }
+
+    // Validate age if provided
+    if let Some(age) = user.age {
+        if age < 0 {
+            errors.push(ValidationError {
+                message: "Age cannot be negative".to_string(),
+                field: Some("age".to_string()),
+            });
+        }
+
+        if age > 150 {
+            errors.push(ValidationError {
+                message: "Age cannot exceed 150 years".to_string(),
+                field: Some("age".to_string()),
+            });
+        }
+    }
+
+    // Check if at least one field is provided for update
+    if user.name.is_none() && user.age.is_none() {
+        errors.push(ValidationError {
+            message: "At least one field (name or age) must be provided for update".to_string(),
+            field: None,
+        });
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
 
 pub async fn create_app() -> Router {
     dotenvy::dotenv().ok(); // Don't panic in tests if .env is missing
@@ -87,26 +191,46 @@ pub async fn create_app_with_pool(pool: PgPool) -> Router {
     request_body = CreateUser,
     responses(
         (status = 200, description = "User created successfully", body = User),
-        (status = 400, description = "Invalid data")
+        (status = 400, description = "Validation errors", body = ValidationErrorResponse),
+        (status = 500, description = "Internal server error")
     )
 )]
 async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateUser>,
-) -> Result<Json<User>, StatusCode> {
+) -> Result<Json<User>, (StatusCode, Json<ValidationErrorResponse>)> {
     info!(?payload, "Creating new user");
     
+    // Validate input
+    if let Err(validation_errors) = validate_create_user(&payload) {
+        warn!(?validation_errors, "Validation failed for create user");
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ValidationErrorResponse {
+                errors: validation_errors,
+            }),
+        ));
+    }
+
     let user = sqlx::query_as!(
         User,
         "INSERT INTO users (name, age) VALUES ($1, $2) RETURNING id, name, age",
-        payload.name,
+        payload.name.trim(),
         payload.age
     )
     .fetch_one(&pool)
     .await
     .map_err(|e| {
         error!(error = %e, "Failed to create user");
-        StatusCode::INTERNAL_SERVER_ERROR
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ValidationErrorResponse {
+                errors: vec![ValidationError {
+                    message: "Failed to create user".to_string(),
+                    field: None,
+                }],
+            }),
+        )
     })?;
 
     info!(user_id = user.id, "User created successfully");
@@ -186,6 +310,7 @@ async fn get_user_by_id(
     request_body = UpdateUser,
     responses(
         (status = 200, description = "User updated successfully", body = User),
+        (status = 400, description = "Validation errors", body = ValidationErrorResponse),
         (status = 404, description = "User not found"),
         (status = 500, description = "Internal server error")
     )
@@ -194,25 +319,52 @@ async fn update_user(
     State(pool): State<PgPool>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateUser>,
-) -> Result<Json<User>, StatusCode> {
+) -> Result<Json<User>, (StatusCode, Json<ValidationErrorResponse>)> {
     info!(user_id = id, ?payload, "Updating user");
     
+    // Validate input
+    if let Err(validation_errors) = validate_update_user(&payload) {
+        warn!(?validation_errors, "Validation failed for update user");
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ValidationErrorResponse {
+                errors: validation_errors,
+            }),
+        ));
+    }
+
     // First check if user exists
     let existing_user = sqlx::query_as!(User, "SELECT id, name, age FROM users WHERE id = $1", id)
         .fetch_optional(&pool)
         .await
         .map_err(|e| {
             error!(error = %e, user_id = id, "Failed to fetch user for update");
-            StatusCode::INTERNAL_SERVER_ERROR
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ValidationErrorResponse {
+                    errors: vec![ValidationError {
+                        message: "Failed to fetch user".to_string(),
+                        field: None,
+                    }],
+                }),
+            )
         })?;
 
     let existing_user = existing_user.ok_or_else(|| {
         warn!(user_id = id, "User not found for update");
-        StatusCode::NOT_FOUND
+        (
+            StatusCode::NOT_FOUND,
+            Json(ValidationErrorResponse {
+                errors: vec![ValidationError {
+                    message: "User not found".to_string(),
+                    field: None,
+                }],
+            }),
+        )
     })?;
 
-    // Use existing values if not provided in update
-    let name = payload.name.unwrap_or(existing_user.name);
+    // Use existing values if not provided in update, trim name if provided
+    let name = payload.name.as_ref().map(|n| n.trim().to_string()).unwrap_or(existing_user.name);
     let age = payload.age.unwrap_or(existing_user.age);
 
     let updated_user = sqlx::query_as!(
@@ -226,7 +378,15 @@ async fn update_user(
     .await
     .map_err(|e| {
         error!(error = %e, user_id = id, "Failed to update user");
-        StatusCode::INTERNAL_SERVER_ERROR
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ValidationErrorResponse {
+                errors: vec![ValidationError {
+                    message: "Failed to update user".to_string(),
+                    field: None,
+                }],
+            }),
+        )
     })?;
 
     info!(user_id = id, "User updated successfully");
