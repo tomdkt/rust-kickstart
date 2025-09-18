@@ -6,4 +6,7 @@
 # IntelliJ IDEA
 .idea/
 *.iml
+
+# Environment and config files
 .env
+config/local.toml

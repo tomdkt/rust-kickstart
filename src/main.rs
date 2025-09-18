@@ -3,7 +3,7 @@
 //! Main entry point for the Rust Kickstart API server.
 //! Configures logging and starts the HTTP server.
 
-use rust_kickstart::create_app;
+use rust_kickstart::{create_app, AppConfig};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -20,12 +20,14 @@ async fn main() {
 
     tracing::info!("Starting Rust Kickstart API server");
 
+    // Load configuration for server settings
+    let config = AppConfig::load();
+    tracing::info!("Loaded configuration for environment: {}", config.environment);
+
     let app = create_app().await;
 
-    // Allow configuration via environment variables
-    let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_owned());
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_owned());
-    let addr = format!("{host}:{port}");
+    // Use configuration for server settings
+    let addr = config.server.address();
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await

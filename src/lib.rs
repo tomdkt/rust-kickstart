@@ -6,27 +6,25 @@
 #![allow(clippy::needless_for_each)]
 
 use axum::{
-    Json, Router,
-    response::Html,
-    routing::{get, post},
+    response::Html, routing::{get, post},
+    Json,
+    Router,
 };
-use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use std::env;
+use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 use utoipa::OpenApi;
 
 // Module declarations
-pub mod user;
 pub mod bank;
-pub mod example;
+pub mod config;
+pub mod user;
 
 // Re-export commonly used types
-pub use user::{User, CreateUser, UpdateUser, UserService};
-pub use bank::{BankService, BankError};
-
-
+pub use bank::{BankError, BankService};
+pub use config::AppConfig;
+pub use user::{CreateUser, UpdateUser, User, UserService};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -57,31 +55,25 @@ pub use bank::{BankService, BankError};
 /// `OpenAPI` documentation structure
 struct ApiDoc;
 
-
-
 /// Creates the main application router with database connection
 ///
 /// # Panics
-/// Panics if `DATABASE_URL` environment variable is not set or database connection fails
+/// Panics if configuration cannot be loaded or database connection fails
 pub async fn create_app() -> Router {
-    dotenvy::dotenv().ok(); // Don't panic in tests if .env is missing
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let config = AppConfig::load();
 
     info!("Connecting to database...");
-    
-    // Get max connections from environment variable or use default of 5
-    let max_connections = env::var("DB_MAX_CONNECTIONS")
-        .unwrap_or_else(|_| "5".to_string())
-        .parse::<u32>()
-        .unwrap_or(5);
-    
+
     let pool = PgPoolOptions::new()
-        .max_connections(max_connections)
-        .connect(&database_url)
+        .max_connections(config.database.max_connections)
+        .connect(&config.database.url)
         .await
         .expect("Failed to create pool");
 
-    info!("Database connection established");
+    info!(
+        "Database connection established with {} max connections",
+        config.database.max_connections
+    );
     create_app_with_pool(pool)
 }
 
@@ -93,7 +85,10 @@ pub fn create_app_with_pool(pool: PgPool) -> Router {
 
     Router::new()
         .route("/", get(root_handler))
-        .route("/users", post(user::create_user_handler).get(user::get_all_users_handler))
+        .route(
+            "/users",
+            post(user::create_user_handler).get(user::get_all_users_handler),
+        )
         .route(
             "/users/{id}",
             get(user::get_user_by_id_handler)
@@ -105,8 +100,6 @@ pub fn create_app_with_pool(pool: PgPool) -> Router {
         .layer(TraceLayer::new_for_http())
         .with_state(user_service)
 }
-
-
 
 /// Serves the `OpenAPI` specification as JSON
 async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
