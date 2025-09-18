@@ -4,7 +4,8 @@
 
 use tracing::{info, warn};
 
-use crate::user::domain::{User, UpdateUser, UserError, validate_update_user};
+use crate::user::domain::{User, UpdateUser, UserError};
+use crate::user::validation::validate_update_user;
 use crate::user::repository::UserRepository;
 
 /// Service for updating users

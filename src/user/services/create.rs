@@ -4,7 +4,8 @@
 
 use tracing::{info, warn};
 
-use crate::user::domain::{User, CreateUser, UserError, validate_create_user};
+use crate::user::domain::{User, CreateUser, UserError};
+use crate::user::validation::validate_create_user;
 use crate::user::repository::UserRepository;
 
 /// Service for creating users

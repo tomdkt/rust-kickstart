@@ -10,6 +10,7 @@ pub mod repository;
 pub mod service;
 pub mod services;
 pub mod controller;
+pub mod validation;
 
 // Public exports - only UserService is exposed to other modules
 pub use service::UserService;
