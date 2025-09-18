@@ -69,17 +69,18 @@ impl TestContext {
     async fn run_migrations(pool: &PgPool, schema_name: &str) {
         info!("Running migrations in schema: {}", schema_name);
         
-        // Create users table in the test schema
-        sqlx::query(&format!(
-            "CREATE TABLE {}.users (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                age INT NOT NULL
-            )", schema_name
-        ))
-        .execute(pool)
-        .await
-        .expect("Failed to create users table in test schema");
+        // Set search_path to the test schema for migrations
+        sqlx::query(&format!("SET search_path TO {}, public", schema_name))
+            .execute(pool)
+            .await
+            .expect("Failed to set search_path for migrations");
+        
+        // Run migrations from the ./migrations folder - single source of truth
+        // This ensures tests use the same schema definition as production
+        sqlx::migrate!("./migrations")
+            .run(pool)
+            .await
+            .expect("Failed to run migrations in test schema");
         
         info!("Migrations completed for schema: {}", schema_name);
     }
