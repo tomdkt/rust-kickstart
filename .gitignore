@@ -1,0 +1,9 @@
+/target
+# Rust
+/target/
+.rustc_info.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+.env
