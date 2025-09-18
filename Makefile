@@ -1,4 +1,4 @@
-.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose help
+.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose check help
 
 # Start app
 dev:
@@ -36,11 +36,24 @@ test:
 	@cargo test
 
 
+# Run all code quality checks (format, lint, test)
+check:
+	@echo "🔍 Running code quality checks..."
+	@echo "📝 Formatting code..."
+	@cargo fmt
+	@echo "🔧 Running linter..."
+	@cargo clippy --all-targets --all-features -- -D warnings
+	@echo "🧪 Running tests..."
+	@$(MAKE) test
+	@echo "✅ All checks passed!"
+
 # Show available commands
 help:
 	@echo "Available commands:"
+	@echo "  dev            - Start development server with hot reload"
 	@echo "  db             - Complete database setup (idempotent) 🚀"
+	@echo "  test           - Run integration tests"
+	@echo "  check          - Run all code quality checks (format, lint, test)"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"
-	@echo "  test           - Run integration tests"
 	@echo "  help           - Show this message"
