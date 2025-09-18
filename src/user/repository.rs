@@ -61,7 +61,8 @@ impl UserRepository {
     pub(super) async fn find_by_id(&self, id: i32) -> Result<Option<User>, UserError> {
         info!(user_id = id, "Fetching user by ID from database");
 
-        let user = sqlx::query_as!(User, "SELECT id, name, age FROM users WHERE id = $1", id)
+        let user = sqlx::query_as::<_, User>(include_str!("sql/find_user_by_id.sql"))
+            .bind(id)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {

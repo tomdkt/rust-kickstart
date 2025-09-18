@@ -22,7 +22,7 @@ pub struct UpdateUser {
 }
 
 /// User entity returned by the API
-#[derive(Serialize, ToSchema, Debug, Clone)]
+#[derive(Serialize, ToSchema, Debug, Clone, sqlx::FromRow)]
 pub struct User {
     /// Unique user identifier
     pub id: i32,
