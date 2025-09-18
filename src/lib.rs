@@ -68,8 +68,15 @@ pub async fn create_app() -> Router {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     info!("Connecting to database...");
+    
+    // Get max connections from environment variable or use default of 5
+    let max_connections = env::var("DB_MAX_CONNECTIONS")
+        .unwrap_or_else(|_| "5".to_string())
+        .parse::<u32>()
+        .unwrap_or(5);
+    
     let pool = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(max_connections)
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
