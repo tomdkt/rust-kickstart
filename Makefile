@@ -1,5 +1,10 @@
 .PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose help
 
+# Start app
+app/start:
+	@$(MAKE) infra/raise
+	@cargo run
+
 # Start infrastructure with docker-compose
 infra/raise:
 	docker compose --env-file ./.env up -d

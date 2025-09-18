@@ -174,6 +174,7 @@ pub async fn create_app() -> Router {
 
 pub async fn create_app_with_pool(pool: PgPool) -> Router {
     Router::new()
+        .route("/", get(root_handler))
         .route("/users", post(create_user).get(get_all_users))
         .route("/users/{id}", get(get_user_by_id).put(update_user).delete(delete_user))
         .route("/api-docs/openapi.json", get(serve_openapi))
@@ -433,6 +434,19 @@ async fn delete_user(
 
 async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
     Json(ApiDoc::openapi())
+}
+
+async fn root_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "name": "Rust Kickstart API",
+        "version": "0.1.0",
+        "status": "running",
+        "endpoints": {
+            "users": "/users",
+            "docs": "/swagger-ui",
+            "openapi": "/api-docs/openapi.json"
+        }
+    }))
 }
 
 async fn serve_swagger_ui() -> Html<String> {
