@@ -24,7 +24,7 @@ pub mod example;
 
 // Re-export commonly used types
 pub use user::{User, CreateUser, UpdateUser, UserService};
-pub use bank::BankService;
+pub use bank::{BankService, BankError};
 
 
 

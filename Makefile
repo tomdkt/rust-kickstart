@@ -33,7 +33,7 @@ test:
 	@echo "🧪 Running integration tests..."
 	@$(MAKE) db
 	@echo "🔬 Running tests..."
-	@cargo test
+	@cargo test -- --nocapture
 
 
 # Run all code quality checks (format, lint, test)

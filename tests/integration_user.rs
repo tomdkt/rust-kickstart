@@ -1,4 +1,7 @@
-//! Integration tests for the Rust Kickstart API
+//! Integration tests for the User module HTTP endpoints
+//! 
+//! These tests verify the complete HTTP API functionality for user management,
+//! testing the full stack from HTTP requests to database operations.
 
 mod common;
 
@@ -8,6 +11,7 @@ use common::TestContext;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
+
 #[tokio::test]
 async fn test_get_all_users_empty() {
     let ctx = TestContext::new().await;
@@ -24,7 +28,6 @@ async fn test_get_all_users_empty() {
     let users: Vec<Value> = serde_json::from_slice(&body).unwrap();
     assert!(users.is_empty(), "Users list should be empty initially");
 
-    // Explicit cleanup
     ctx.cleanup().await;
 }
 

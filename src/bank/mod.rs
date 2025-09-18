@@ -6,4 +6,4 @@
 pub mod service;
 
 // Public exports
-pub use service::BankService;
+pub use service::{BankService, BankError};
