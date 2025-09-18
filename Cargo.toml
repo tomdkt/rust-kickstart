@@ -18,4 +18,4 @@ tower-http = { version = "0.6.2", features = ["trace"] }
 [dev-dependencies]
 tower = "0.5.1"
 http-body-util = "0.1.2"
-serial_test = "3.2.0"
+uuid = { version = "1.11.0", features = ["v7"] }

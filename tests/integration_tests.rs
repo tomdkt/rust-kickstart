@@ -6,12 +6,8 @@ use axum::http::{Request, StatusCode};
 use axum::body::Body;
 use tower::ServiceExt;
 use http_body_util::BodyExt;
-use serial_test::serial;
-
 #[tokio::test]
-#[serial]
 async fn test_get_all_users_empty() {
-    TestContext::cleanup_database().await;
     let ctx = TestContext::new().await;
 
     let request = Request::builder()
@@ -25,12 +21,13 @@ async fn test_get_all_users_empty() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let users: Vec<Value> = serde_json::from_slice(&body).unwrap();
     assert!(users.is_empty(), "Users list should be empty initially");
+    
+    // Explicit cleanup
+    ctx.cleanup().await;
 }
 
 #[tokio::test]
-#[serial]
 async fn test_create_user() {
-    TestContext::cleanup_database().await;
     let ctx = TestContext::new().await;
 
     let new_user = json!({
@@ -54,12 +51,12 @@ async fn test_create_user() {
     assert_eq!(created_user["name"], "John Doe");
     assert_eq!(created_user["age"], 30);
     assert!(created_user["id"].is_number());
+    
+    ctx.cleanup().await;
 }
 
 #[tokio::test]
-#[serial]
 async fn test_get_user_not_found() {
-    TestContext::cleanup_database().await;
     let ctx = TestContext::new().await;
 
     let request = Request::builder()
@@ -69,12 +66,12 @@ async fn test_get_user_not_found() {
     
     let response = ctx.app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    
+    ctx.cleanup().await;
 }
 
 #[tokio::test]
-#[serial]
 async fn test_full_crud_workflow() {
-    TestContext::cleanup_database().await;
     let ctx = TestContext::new().await;
 
     // 1. Create user
@@ -150,4 +147,6 @@ async fn test_full_crud_workflow() {
     
     let response = ctx.app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    
+    ctx.cleanup().await;
 }

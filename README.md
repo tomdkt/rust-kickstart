@@ -5,11 +5,11 @@ A minimal Rust API boilerplate with Axum, PostgreSQL, and Docker.
 ## Getting Started
 
 ```bash
-# 1. Setup database (idempotent - does everything needed)
-make db
+    # 1. Setup database (idempotent - does everything needed)
+    make db
 
-# 2. Start server
-cargo run
+    # 2. Start server
+    cargo run
 ```
 
 Server runs at [`http://127.0.0.1:3000`](http://127.0.0.1:3000)
@@ -18,8 +18,8 @@ Server runs at [`http://127.0.0.1:3000`](http://127.0.0.1:3000)
 
 ### Start Application
 ```bash
-# Setup database and start application
-make db && cargo run
+    # Setup database and start application
+    make db && cargo run
 ```
 
 ### Stop Application
@@ -34,18 +34,20 @@ make db && cargo run
 
 ### Complete Restart
 ```bash
-# Stop everything and restart
-make infra/down && make db && cargo run
+    # Stop everything and restart
+    make infra/down && make db && cargo run
 ```
 
 ### Run Tests
 ```bash
-# Run integration tests (automatically starts database and runs migrations)
-make test
-
-# Run tests with detailed output
-make test/verbose
+    # Run integration tests (automatically starts database and runs migrations)
+    make test
+    
+    # Run tests with detailed output
+    make test/verbose
 ```
+
+**Test Isolation**: Integration tests use isolated PostgreSQL schemas with UUID v7 identifiers. Each test creates its own schema (`test_{uuid_v7}`), runs migrations, executes tests, and automatically cleans up. This ensures complete test isolation and allows parallel execution without data conflicts.
 
 ## Database & SQLx
 
@@ -54,11 +56,11 @@ This project uses SQLx with compile-time query checking. The `.sqlx/` directory 
 ### Working with Migrations
 
 ```bash
-# Create a new migration
-sqlx migrate add create_new_table
+    # Create a new migration
+    sqlx migrate add create_new_table
 
-# Setup everything (idempotent - safe to run multiple times)
-make db
+    # Setup everything (idempotent - safe to run multiple times)
+    make db
 ```
 
 ### Important SQLx Workflow
@@ -70,7 +72,7 @@ make db
 
 **Just run:**
 ```bash
-make db
+    make db
 ```
 
 This command is **idempotent** and does everything needed:
