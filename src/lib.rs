@@ -1,51 +1,74 @@
+//! # Rust Kickstart API
+//!
+//! A minimal REST API built with Axum, `PostgreSQL`, and comprehensive validation.
+//! Provides user management endpoints with `OpenAPI` documentation.
+
+#![allow(clippy::needless_for_each)]
 #[allow(unused_imports)]
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::Html,
     routing::{delete, get, post, put},
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::env;
 use tower_http::trace::TraceLayer;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use utoipa::{OpenApi, ToSchema};
 
+/// Request payload for creating a new user
 #[derive(Deserialize, ToSchema, Debug)]
 pub struct CreateUser {
+    /// User's full name
     pub name: String,
+    /// User's age in years
     pub age: i32,
 }
 
+/// Request payload for updating an existing user
 #[derive(Deserialize, ToSchema, Debug)]
 pub struct UpdateUser {
+    /// Updated user name (optional)
     pub name: Option<String>,
+    /// Updated user age (optional)
     pub age: Option<i32>,
 }
 
+/// User entity returned by the API
 #[derive(Serialize, ToSchema, Debug)]
 pub struct User {
+    /// Unique user identifier
     pub id: i32,
+    /// User's full name
     pub name: String,
+    /// User's age in years
     pub age: i32,
 }
 
+/// Generic API response with a message
 #[derive(Serialize, ToSchema, Debug)]
 pub struct ApiResponse {
+    /// Response message
     pub message: String,
 }
 
+/// Individual validation error
 #[derive(Serialize, ToSchema, Debug)]
 pub struct ValidationError {
+    /// Error message describing the validation failure
     pub message: String,
+    /// Field name that caused the validation error (if applicable)
     pub field: Option<String>,
 }
 
+/// Response containing validation errors
 #[derive(Serialize, ToSchema, Debug)]
 pub struct ValidationErrorResponse {
+    /// List of validation errors
     pub errors: Vec<ValidationError>,
 }
 
@@ -62,39 +85,45 @@ pub struct ValidationErrorResponse {
         description = "API for user management"
     )
 )]
+/// `OpenAPI` documentation structure
 struct ApiDoc;
 
-// Validation functions
+/// Validates user creation data
+///
+/// # Errors
+/// Returns validation errors if:
+/// - Name is empty or exceeds 100 characters
+/// - Age is negative or exceeds 150 years
 fn validate_create_user(user: &CreateUser) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
 
     // Validate name
     if user.name.trim().is_empty() {
         errors.push(ValidationError {
-            message: "Name cannot be empty".to_string(),
-            field: Some("name".to_string()),
+            message: "Name cannot be empty".to_owned(),
+            field: Some("name".to_owned()),
         });
     }
 
     if user.name.len() > 100 {
         errors.push(ValidationError {
-            message: "Name cannot exceed 100 characters".to_string(),
-            field: Some("name".to_string()),
+            message: "Name cannot exceed 100 characters".to_owned(),
+            field: Some("name".to_owned()),
         });
     }
 
     // Validate age
     if user.age < 0 {
         errors.push(ValidationError {
-            message: "Age cannot be negative".to_string(),
-            field: Some("age".to_string()),
+            message: "Age cannot be negative".to_owned(),
+            field: Some("age".to_owned()),
         });
     }
 
     if user.age > 150 {
         errors.push(ValidationError {
-            message: "Age cannot exceed 150 years".to_string(),
-            field: Some("age".to_string()),
+            message: "Age cannot exceed 150 years".to_owned(),
+            field: Some("age".to_owned()),
         });
     }
 
@@ -105,6 +134,13 @@ fn validate_create_user(user: &CreateUser) -> Result<(), Vec<ValidationError>> {
     }
 }
 
+/// Validates user update data
+///
+/// # Errors
+/// Returns validation errors if:
+/// - Name is empty or exceeds 100 characters (when provided)
+/// - Age is negative or exceeds 150 years (when provided)
+/// - No fields are provided for update
 fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
     let mut errors = Vec::new();
 
@@ -112,15 +148,15 @@ fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
     if let Some(ref name) = user.name {
         if name.trim().is_empty() {
             errors.push(ValidationError {
-                message: "Name cannot be empty".to_string(),
-                field: Some("name".to_string()),
+                message: "Name cannot be empty".to_owned(),
+                field: Some("name".to_owned()),
             });
         }
 
         if name.len() > 100 {
             errors.push(ValidationError {
-                message: "Name cannot exceed 100 characters".to_string(),
-                field: Some("name".to_string()),
+                message: "Name cannot exceed 100 characters".to_owned(),
+                field: Some("name".to_owned()),
             });
         }
     }
@@ -129,15 +165,15 @@ fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
     if let Some(age) = user.age {
         if age < 0 {
             errors.push(ValidationError {
-                message: "Age cannot be negative".to_string(),
-                field: Some("age".to_string()),
+                message: "Age cannot be negative".to_owned(),
+                field: Some("age".to_owned()),
             });
         }
 
         if age > 150 {
             errors.push(ValidationError {
-                message: "Age cannot exceed 150 years".to_string(),
-                field: Some("age".to_string()),
+                message: "Age cannot exceed 150 years".to_owned(),
+                field: Some("age".to_owned()),
             });
         }
     }
@@ -145,7 +181,7 @@ fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
     // Check if at least one field is provided for update
     if user.name.is_none() && user.age.is_none() {
         errors.push(ValidationError {
-            message: "At least one field (name or age) must be provided for update".to_string(),
+            message: "At least one field (name or age) must be provided for update".to_owned(),
             field: None,
         });
     }
@@ -157,6 +193,10 @@ fn validate_update_user(user: &UpdateUser) -> Result<(), Vec<ValidationError>> {
     }
 }
 
+/// Creates the main application router with database connection
+///
+/// # Panics
+/// Panics if `DATABASE_URL` environment variable is not set or database connection fails
 pub async fn create_app() -> Router {
     dotenvy::dotenv().ok(); // Don't panic in tests if .env is missing
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -167,23 +207,25 @@ pub async fn create_app() -> Router {
         .connect(&database_url)
         .await
         .expect("Failed to create pool");
-    
+
     info!("Database connection established");
-    create_app_with_pool(pool).await
+    create_app_with_pool(pool)
 }
 
-pub async fn create_app_with_pool(pool: PgPool) -> Router {
+/// Creates the application router with a provided database pool
+pub fn create_app_with_pool(pool: PgPool) -> Router {
     Router::new()
         .route("/", get(root_handler))
         .route("/users", post(create_user).get(get_all_users))
-        .route("/users/{id}", get(get_user_by_id).put(update_user).delete(delete_user))
+        .route(
+            "/users/{id}",
+            get(get_user_by_id).put(update_user).delete(delete_user),
+        )
         .route("/api-docs/openapi.json", get(serve_openapi))
         .route("/swagger-ui", get(serve_swagger_ui))
         .layer(TraceLayer::new_for_http())
         .with_state(pool)
 }
-
-
 
 #[utoipa::path(
     post,
@@ -196,12 +238,13 @@ pub async fn create_app_with_pool(pool: PgPool) -> Router {
         (status = 500, description = "Internal server error")
     )
 )]
+/// Creates a new user in the database
 async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateUser>,
 ) -> Result<Json<User>, (StatusCode, Json<ValidationErrorResponse>)> {
     info!(?payload, "Creating new user");
-    
+
     // Validate input
     if let Err(validation_errors) = validate_create_user(&payload) {
         warn!(?validation_errors, "Validation failed for create user");
@@ -227,7 +270,7 @@ async fn create_user(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ValidationErrorResponse {
                 errors: vec![ValidationError {
-                    message: "Failed to create user".to_string(),
+                    message: "Failed to create user".to_owned(),
                     field: None,
                 }],
             }),
@@ -247,9 +290,10 @@ async fn create_user(
         (status = 500, description = "Internal server error")
     )
 )]
+/// Retrieves all users from the database
 async fn get_all_users(State(pool): State<PgPool>) -> Result<Json<Vec<User>>, StatusCode> {
     info!("Fetching all users");
-    
+
     let users = sqlx::query_as!(User, "SELECT id, name, age FROM users ORDER BY id")
         .fetch_all(&pool)
         .await
@@ -275,12 +319,13 @@ async fn get_all_users(State(pool): State<PgPool>) -> Result<Json<Vec<User>>, St
         (status = 500, description = "Internal server error")
     )
 )]
+/// Retrieves a specific user by ID
 async fn get_user_by_id(
     State(pool): State<PgPool>,
     Path(id): Path<i32>,
 ) -> Result<Json<User>, StatusCode> {
     info!(user_id = id, "Fetching user by ID");
-    
+
     let user = sqlx::query_as!(User, "SELECT id, name, age FROM users WHERE id = $1", id)
         .fetch_optional(&pool)
         .await
@@ -289,15 +334,12 @@ async fn get_user_by_id(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    match user {
-        Some(user) => {
-            info!(user_id = id, "User found");
-            Ok(Json(user))
-        },
-        None => {
-            warn!(user_id = id, "User not found");
-            Err(StatusCode::NOT_FOUND)
-        },
+    if let Some(user) = user {
+        info!(user_id = id, "User found");
+        Ok(Json(user))
+    } else {
+        warn!(user_id = id, "User not found");
+        Err(StatusCode::NOT_FOUND)
     }
 }
 
@@ -316,13 +358,14 @@ async fn get_user_by_id(
         (status = 500, description = "Internal server error")
     )
 )]
+/// Updates an existing user's information
 async fn update_user(
     State(pool): State<PgPool>,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateUser>,
 ) -> Result<Json<User>, (StatusCode, Json<ValidationErrorResponse>)> {
     info!(user_id = id, ?payload, "Updating user");
-    
+
     // Validate input
     if let Err(validation_errors) = validate_update_user(&payload) {
         warn!(?validation_errors, "Validation failed for update user");
@@ -344,7 +387,7 @@ async fn update_user(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ValidationErrorResponse {
                     errors: vec![ValidationError {
-                        message: "Failed to fetch user".to_string(),
+                        message: "Failed to fetch user".to_owned(),
                         field: None,
                     }],
                 }),
@@ -357,7 +400,7 @@ async fn update_user(
             StatusCode::NOT_FOUND,
             Json(ValidationErrorResponse {
                 errors: vec![ValidationError {
-                    message: "User not found".to_string(),
+                    message: "User not found".to_owned(),
                     field: None,
                 }],
             }),
@@ -365,7 +408,11 @@ async fn update_user(
     })?;
 
     // Use existing values if not provided in update, trim name if provided
-    let name = payload.name.as_ref().map(|n| n.trim().to_string()).unwrap_or(existing_user.name);
+    let name = payload
+        .name
+        .as_ref()
+        .map(|n| n.trim().to_owned())
+        .unwrap_or(existing_user.name);
     let age = payload.age.unwrap_or(existing_user.age);
 
     let updated_user = sqlx::query_as!(
@@ -383,7 +430,7 @@ async fn update_user(
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ValidationErrorResponse {
                 errors: vec![ValidationError {
-                    message: "Failed to update user".to_string(),
+                    message: "Failed to update user".to_owned(),
                     field: None,
                 }],
             }),
@@ -407,12 +454,13 @@ async fn update_user(
         (status = 500, description = "Internal server error")
     )
 )]
+/// Deletes a user from the database
 async fn delete_user(
     State(pool): State<PgPool>,
     Path(id): Path<i32>,
 ) -> Result<Json<ApiResponse>, StatusCode> {
     info!(user_id = id, "Deleting user");
-    
+
     let result = sqlx::query!("DELETE FROM users WHERE id = $1", id)
         .execute(&pool)
         .await
@@ -428,14 +476,16 @@ async fn delete_user(
 
     info!(user_id = id, "User deleted successfully");
     Ok(Json(ApiResponse {
-        message: format!("User with id {} deleted successfully", id),
+        message: format!("User with id {id} deleted successfully"),
     }))
 }
 
+/// Serves the `OpenAPI` specification as JSON
 async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
     Json(ApiDoc::openapi())
 }
 
+/// Root endpoint providing API information
 async fn root_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "name": "Rust Kickstart API",
@@ -449,9 +499,9 @@ async fn root_handler() -> Json<serde_json::Value> {
     }))
 }
 
+/// Serves the Swagger UI for API documentation
 async fn serve_swagger_ui() -> Html<String> {
-    Html(format!(
-        r#"<!DOCTYPE html>
+    Html(r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Swagger UI</title>
@@ -461,16 +511,15 @@ async fn serve_swagger_ui() -> Html<String> {
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
     <script>
-        SwaggerUIBundle({{
+        SwaggerUIBundle({
             url: '/api-docs/openapi.json',
             dom_id: '#swagger-ui',
             presets: [
                 SwaggerUIBundle.presets.apis,
                 SwaggerUIBundle.presets.standalone
             ]
-        }});
+        });
     </script>
 </body>
-</html>"#
-    ))
+</html>"#.to_owned())
 }

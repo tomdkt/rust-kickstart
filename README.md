@@ -5,7 +5,10 @@ A minimal Rust API boilerplate with Axum, PostgreSQL, and Docker.
 ## Getting Started
 
 ```bash
-    # 1. Setup database (idempotent - does everything needed)
+    # 1. Install development dependencies
+    make install 
+    
+    # 2. Setup database (idempotent - does everything needed)
     make db
 
     # 2. Start server
@@ -100,6 +103,89 @@ This command is **idempotent** and does everything needed:
 - `GET /users/{id}` - Get user by ID
 - `PUT /users/{id}` - Update user (partial updates supported)
 - `DELETE /users/{id}` - Delete user
+
+## Code Quality & Best Practices
+
+This project follows strict code quality standards with automated linting, formatting, and testing.
+
+### Linting & Formatting
+
+**Automatic formatting and linting on save** (VS Code configured):
+- **rustfmt**: Code formatting with custom rules in `rustfmt.toml`
+- **Clippy**: Advanced linting with pedantic rules in `clippy.toml`
+- **Workspace lints**: Comprehensive lint rules in `Cargo.toml`
+
+### Quick Commands
+
+```bash
+# Format code
+make format
+
+# Check formatting (CI-style)
+make format-check
+
+# Run linter
+make lint
+
+# Fix linting issues automatically
+make lint-fix
+
+# Run all checks (format + lint + test)
+make check
+
+# Security audit
+make audit
+
+# Generate test coverage
+make coverage
+```
+
+### Pre-commit Hooks
+
+Install pre-commit hooks to run checks automatically:
+
+```bash
+# Install pre-commit (requires Python)
+pip install pre-commit
+
+# Install hooks
+pre-commit install
+
+# Run manually
+make pre-commit
+```
+
+### GitHub Actions CI
+
+Automated CI pipeline runs on every push/PR:
+- ✅ **Formatting check**: `cargo fmt -- --check`
+- ✅ **Linting**: `cargo clippy -- -D warnings`
+- ✅ **Tests**: Full test suite with PostgreSQL
+- ✅ **Security audit**: `cargo audit`
+- ✅ **Documentation**: `cargo doc`
+- ✅ **Coverage**: `cargo llvm-cov --html`
+
+### Development Tools
+
+Install recommended development tools:
+
+```bash
+make install
+```
+
+This installs:
+- `cargo-watch` - Hot reload during development
+- `cargo-audit` - Security vulnerability scanning
+- `cargo-llvm-cov` - Code coverage reporting
+- `sqlx-cli` - Database migration tools
+
+### VS Code Integration
+
+The project includes VS Code settings (`.vscode/settings.json`) that:
+- Enable format on save
+- Run Clippy on save
+- Configure rust-analyzer with project-specific settings
+- Auto-fix issues when possible
 
 ## Logging
 

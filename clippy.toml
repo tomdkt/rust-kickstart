@@ -1,0 +1,16 @@
+# Clippy configuration
+# See: https://doc.rust-lang.org/clippy/configuration.html
+
+# Cognitive complexity threshold
+cognitive-complexity-threshold = 30
+
+# Documentation requirements
+missing-docs-in-crate-items = true
+
+# Performance lints
+too-many-arguments-threshold = 7
+type-complexity-threshold = 250
+
+# Allow certain patterns that are common in web APIs
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true

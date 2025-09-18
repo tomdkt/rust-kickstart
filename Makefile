@@ -1,71 +1,95 @@
-.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose help
+# Development commands for Rust Kickstart API
 
-# Start app
-app/start:
-	@$(MAKE) infra/raise
-	@cargo run
+.PHONY: help dev test lint format check clean build docker-up docker-down migrate audit
 
-# Start infrastructure with docker-compose
-infra/raise:
-	docker compose --env-file ./.env up -d
-
-# Stop infrastructure
-infra/down:
-	docker compose down
-
-# Run database migrations
-db/migrate:
-	@which sqlx > /dev/null || (echo "❌ SQLx CLI not found. Install it with: cargo install sqlx-cli --no-default-features --features postgres" && exit 1)
-	@echo "Running migrations..."
-	@sqlx migrate run
-	@echo "Migrations completed successfully!"
-
-# Prepare SQLx query cache (run after migrations or SQL changes)
-db/prepare:
-	@which sqlx > /dev/null || (echo "❌ SQLx CLI not found. Install it with: cargo install sqlx-cli --no-default-features --features postgres" && exit 1)
-	@echo "Preparing SQLx query cache..."
-	@cargo sqlx prepare
-	@echo "SQLx query cache updated successfully!"
-
-# Complete database setup - idempotent command that does everything
-db:
-	@echo "🚀 Setting up database (idempotent)..."
-	@echo "📦 Starting database container..."
-	@docker compose --env-file ./.env up -d
-	@echo "⏳ Waiting for database to be ready..."
-	@sleep 3
-	@which sqlx > /dev/null || (echo "❌ SQLx CLI not found. Install it with: cargo install sqlx-cli --no-default-features --features postgres" && exit 1)
-	@echo "🔄 Running migrations..."
-	@sqlx migrate run
-	@echo "📝 Preparing SQLx query cache..."
-	@cargo sqlx prepare
-	@echo "✅ Database setup completed successfully!"
-
-# Run migrations and prepare SQLx cache (legacy alias)
-db/setup: db
-
-# Run integration tests (requires database to be running)
-test:
-	@echo "🧪 Running integration tests..."
-	@$(MAKE) db
-	@echo "🔬 Running tests..."
-	@cargo test
-
-# Run tests with detailed output
-test/verbose:
-	@echo "🧪 Running integration tests with verbose output..."
-	@$(MAKE) db
-	@echo "🔬 Running tests with detailed output..."
-	@cargo test -- --nocapture
-
-# Show available commands
-help:
+# Default target
+help: ## Show this help message
 	@echo "Available commands:"
-	@echo "  db             - Complete database setup (idempotent) 🚀"
-	@echo "  infra/raise    - Start containers in background"
-	@echo "  infra/down     - Stop and remove containers"
-	@echo "  db/migrate     - Run pending migrations"
-	@echo "  db/prepare     - Update SQLx query cache"
-	@echo "  test           - Run integration tests"
-	@echo "  test/verbose   - Run tests with detailed output"
-	@echo "  help           - Show this message"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+# Development
+dev: ## Start development server with hot reload
+	cargo watch -x run
+
+install: ## Install development dependencies
+	cargo install cargo-watch cargo-audit cargo-llvm-cov sqlx-cli
+
+# Testing
+test: ## Run all tests
+	cargo test
+
+test-watch: ## Run tests in watch mode
+	cargo watch -x test
+
+coverage: ## Generate test coverage report
+	cargo llvm-cov --all-features --workspace --html
+
+# Code quality
+format: ## Format code using rustfmt
+	cargo fmt
+
+format-check: ## Check if code is properly formatted
+	cargo fmt -- --check
+
+lint: ## Run clippy linter
+	cargo clippy --all-targets --all-features -- -D warnings
+
+lint-fix: ## Fix clippy warnings automatically
+	cargo clippy --all-targets --all-features --fix -- -D warnings
+
+check: ## Run all checks (format, lint, test)
+	@echo "🔍 Checking formatting..."
+	@make format-check
+	@echo "🔍 Running linter..."
+	@make lint
+	@echo "🔍 Running tests..."
+	@make test
+	@echo "✅ All checks passed!"
+
+# Security
+audit: ## Run security audit
+	cargo audit
+
+# Build
+build: ## Build the project
+	cargo build
+
+build-release: ## Build optimized release version
+	cargo build --release
+
+# Database
+migrate: ## Run database migrations
+	sqlx migrate run
+
+migrate-revert: ## Revert last migration
+	sqlx migrate revert
+
+# Docker
+docker-up: ## Start PostgreSQL with Docker Compose
+	docker-compose up -d
+
+docker-down: ## Stop Docker services
+	docker-compose down
+
+docker-logs: ## Show Docker logs
+	docker-compose logs -f
+
+# Cleanup
+clean: ## Clean build artifacts
+	cargo clean
+
+# Documentation
+docs: ## Generate and open documentation
+	cargo doc --open --no-deps
+
+docs-check: ## Check documentation
+	cargo doc --no-deps --document-private-items
+
+# Pre-commit hook simulation
+pre-commit: ## Run pre-commit checks
+	@echo "🚀 Running pre-commit checks..."
+	@make format-check
+	@make lint
+	@make test
+	@make audit
+	@echo "✅ Pre-commit checks passed!"

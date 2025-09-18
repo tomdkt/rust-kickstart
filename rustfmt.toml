@@ -1,0 +1,18 @@
+# Rust formatting configuration (stable features only)
+# See: https://rust-lang.github.io/rustfmt/
+
+# Basic formatting
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Function formatting
+fn_params_layout = "Tall"
+
+# Control flow formatting
+match_block_trailing_comma = true
+
+# Misc formatting
+use_small_heuristics = "Default"
+newline_style = "Unix"
+edition = "2024"
