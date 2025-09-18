@@ -1,95 +1,46 @@
-# Development commands for Rust Kickstart API
+.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose help
 
-.PHONY: help dev test lint format check clean build docker-up docker-down migrate audit
-
-# Default target
-help: ## Show this help message
-	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
-
-# Development
-dev: ## Start development server with hot reload
+# Start app
+dev:
+	@$(MAKE) infra/raise
 	cargo watch -x run
 
-install: ## Install development dependencies
-	cargo install cargo-watch cargo-audit cargo-llvm-cov sqlx-cli
+# Start infrastructure with docker-compose
+infra/raise:
+	docker compose --env-file ./.env up -d
 
-# Testing
-test: ## Run all tests
-	cargo test
+# Stop infrastructure
+infra/down:
+	docker compose down
 
-test-watch: ## Run tests in watch mode
-	cargo watch -x test
+# Complete database setup - idempotent command that does everything
+db:
+	@echo "🚀 Setting up database (idempotent)..."
+	@echo "📦 Starting database container..."
+	@docker compose --env-file ./.env up -d
+	@echo "⏳ Waiting for database to be ready..."
+	@sleep 3
+	@which sqlx > /dev/null || (echo "❌ SQLx CLI not found. Install it with: cargo install sqlx-cli --no-default-features --features postgres" && exit 1)
+	@echo "🔄 Running migrations..."
+	@sqlx migrate run
+	@echo "📝 Preparing SQLx query cache..."
+	@cargo sqlx prepare
+	@echo "✅ Database setup completed successfully!"
 
-coverage: ## Generate test coverage report
-	cargo llvm-cov --all-features --workspace --html
 
-# Code quality
-format: ## Format code using rustfmt
-	cargo fmt
+# Run integration tests (requires database to be running)
+test:
+	@echo "🧪 Running integration tests..."
+	@$(MAKE) db
+	@echo "🔬 Running tests..."
+	@cargo test
 
-format-check: ## Check if code is properly formatted
-	cargo fmt -- --check
 
-lint: ## Run clippy linter
-	cargo clippy --all-targets --all-features -- -D warnings
-
-lint-fix: ## Fix clippy warnings automatically
-	cargo clippy --all-targets --all-features --fix -- -D warnings
-
-check: ## Run all checks (format, lint, test)
-	@echo "🔍 Checking formatting..."
-	@make format-check
-	@echo "🔍 Running linter..."
-	@make lint
-	@echo "🔍 Running tests..."
-	@make test
-	@echo "✅ All checks passed!"
-
-# Security
-audit: ## Run security audit
-	cargo audit
-
-# Build
-build: ## Build the project
-	cargo build
-
-build-release: ## Build optimized release version
-	cargo build --release
-
-# Database
-migrate: ## Run database migrations
-	sqlx migrate run
-
-migrate-revert: ## Revert last migration
-	sqlx migrate revert
-
-# Docker
-docker-up: ## Start PostgreSQL with Docker Compose
-	docker-compose up -d
-
-docker-down: ## Stop Docker services
-	docker-compose down
-
-docker-logs: ## Show Docker logs
-	docker-compose logs -f
-
-# Cleanup
-clean: ## Clean build artifacts
-	cargo clean
-
-# Documentation
-docs: ## Generate and open documentation
-	cargo doc --open --no-deps
-
-docs-check: ## Check documentation
-	cargo doc --no-deps --document-private-items
-
-# Pre-commit hook simulation
-pre-commit: ## Run pre-commit checks
-	@echo "🚀 Running pre-commit checks..."
-	@make format-check
-	@make lint
-	@make test
-	@make audit
-	@echo "✅ Pre-commit checks passed!"
+# Show available commands
+help:
+	@echo "Available commands:"
+	@echo "  db             - Complete database setup (idempotent) 🚀"
+	@echo "  infra/raise    - Start containers in background"
+	@echo "  infra/down     - Stop and remove containers"
+	@echo "  test           - Run integration tests"
+	@echo "  help           - Show this message"
