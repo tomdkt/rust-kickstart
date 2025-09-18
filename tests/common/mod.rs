@@ -1,4 +1,4 @@
-use rust_kickstart::{create_app_with_pool, UserService, BankService, CreateUser, User};
+use rust_kickstart::create_app_with_pool;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tracing::info;
@@ -96,36 +96,9 @@ impl TestContext {
         info!("[TEST_SETUP] ✅ Migrations completed for schema: {}", schema_name);
     }
 
-    /// Creates a UserService instance using the test database pool
-    pub fn create_user_service(&self) -> UserService {
-        UserService::new(self.test_pool.clone())
-    }
-
-    /// Creates a BankService instance using the test database pool
-    pub fn create_bank_service(&self) -> BankService {
-        let user_service = self.create_user_service();
-        BankService::new(user_service)
-    }
-
-    /// Creates both UserService and BankService instances for convenience
-    pub fn create_services(&self) -> (UserService, BankService) {
-        let user_service = self.create_user_service();
-        let bank_service = BankService::new(user_service.clone());
-        (user_service, bank_service)
-    }
-
-    /// Helper method to create a test user with default values
-    pub async fn create_test_user(&self, name: &str, age: i32) -> User {
-        let user_service = self.create_user_service();
-        let create_user_data = CreateUser {
-            name: name.to_string(),
-            age,
-        };
-        
-        user_service
-            .create_user(create_user_data)
-            .await
-            .expect("Failed to create test user")
+    /// Returns a reference to the test database pool for service creation
+    pub fn get_test_pool(&self) -> &PgPool {
+        &self.test_pool
     }
 
     #[allow(clippy::print_stderr)]

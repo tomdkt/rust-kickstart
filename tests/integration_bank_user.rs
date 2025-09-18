@@ -5,14 +5,32 @@
 
 mod common;
 
-use rust_kickstart::{BankError, CreateUser};
+use rust_kickstart::{BankError, CreateUser, UserService, BankService};
 use common::TestContext;
+
+/// Creates a UserService instance using the test database pool
+fn create_user_service(ctx: &TestContext) -> UserService {
+    UserService::new(ctx.get_test_pool().clone())
+}
+
+/// Creates a BankService instance using the test database pool
+fn create_bank_service(ctx: &TestContext) -> BankService {
+    let user_service = create_user_service(ctx);
+    BankService::new(user_service)
+}
+
+/// Creates both UserService and BankService instances for convenience
+fn create_services(ctx: &TestContext) -> (UserService, BankService) {
+    let user_service = create_user_service(ctx);
+    let bank_service = BankService::new(user_service.clone());
+    (user_service, bank_service)
+}
 
 #[tokio::test]
 async fn test_bank_user_integration() {
     // Arrange
     let ctx = TestContext::new().await;
-    let (user_service, bank_service) = ctx.create_services();
+    let (user_service, bank_service) = create_services(&ctx);
     let create_user_data = CreateUser {
         name: "John Doe".to_string(),
         age: 30,
@@ -71,7 +89,7 @@ async fn test_bank_user_integration() {
 async fn test_bank_service_with_nonexistent_user() {
     // Arrange
     let ctx = TestContext::new().await;
-    let bank_service = ctx.create_bank_service();
+    let bank_service = create_bank_service(&ctx);
     let nonexistent_user_id = 99999;
     let initial_balance = 10.00;
 
@@ -96,7 +114,7 @@ async fn test_bank_service_with_nonexistent_user() {
 async fn test_bank_service_update_account_holder() {
     // Arrange
     let ctx = TestContext::new().await;
-    let (user_service, bank_service) = ctx.create_services();
+    let (user_service, bank_service) = create_services(&ctx);
     let create_user_data = CreateUser {
         name: "Jane Smith".to_string(),
         age: 25,
