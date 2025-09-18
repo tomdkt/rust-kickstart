@@ -31,9 +31,8 @@ db:
 # Run integration tests (requires database to be running)
 test:
 	@echo "🧪 Running integration tests..."
-	@$(MAKE) db
-	@echo "🔬 Running tests..."
-	@cargo test -- --nocapture
+	@echo "🔬 Running tests with logging..."
+	@RUST_LOG=info cargo test -- --nocapture
 
 
 # Run all code quality checks (format, lint, test)
@@ -52,7 +51,7 @@ help:
 	@echo "Available commands:"
 	@echo "  dev            - Start development server with hot reload"
 	@echo "  db             - Complete database setup (idempotent) 🚀"
-	@echo "  test           - Run integration tests"
+	@echo "  test           - Run integration tests with logging"
 	@echo "  check          - Run all code quality checks (format, lint, test)"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"

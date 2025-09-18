@@ -3,6 +3,9 @@ use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tracing::info;
 use uuid::Uuid;
+use std::sync::Once;
+
+static INIT: Once = Once::new();
 
 pub struct TestContext {
     pub app: axum::Router,
@@ -13,13 +16,20 @@ pub struct TestContext {
 
 impl TestContext {
     pub async fn new() -> Self {
+        // Initialize tracing subscriber once
+        INIT.call_once(|| {
+            tracing_subscriber::fmt()
+                .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+                .init();
+        });
+
         dotenvy::dotenv().ok();
         let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
         // Generate unique schema name using UUID v7
         let schema_name = format!("test_{}", Uuid::now_v7().simple());
 
-        info!("Creating test schema: {}", schema_name);
+        info!("[TEST_SETUP] Creating test schema: {}", schema_name);
 
         // Connect to database
         let admin_pool = PgPoolOptions::new()
@@ -57,7 +67,7 @@ impl TestContext {
         // Create app with the test pool
         let app = create_app_with_pool(test_pool.clone());
 
-        info!("Test schema {} created and ready", schema_name);
+        info!("[TEST_SETUP] ✅ Test schema {} created and ready", schema_name);
 
         Self {
             app,
@@ -68,7 +78,7 @@ impl TestContext {
     }
 
     async fn run_migrations(pool: &PgPool, schema_name: &str) {
-        info!("Running migrations in schema: {}", schema_name);
+        info!("[TEST_SETUP] Running migrations in schema: {}", schema_name);
 
         // Set search_path to the test schema for migrations
         sqlx::query(&format!("SET search_path TO {schema_name}, public"))
@@ -83,7 +93,7 @@ impl TestContext {
             .await
             .expect("Failed to run migrations in test schema");
 
-        info!("Migrations completed for schema: {}", schema_name);
+        info!("[TEST_SETUP] ✅ Migrations completed for schema: {}", schema_name);
     }
 
     /// Creates a UserService instance using the test database pool
@@ -120,15 +130,15 @@ impl TestContext {
 
     #[allow(clippy::print_stderr)]
     pub async fn cleanup(&self) {
-        info!("Dropping test schema: {}", self.schema_name);
+        info!("[TEST_CLEANUP] Starting cleanup for test schema: {}", self.schema_name);
 
         if let Err(e) = sqlx::query(&format!("DROP SCHEMA {} CASCADE", self.schema_name))
             .execute(&self.pool)
             .await
         {
-            eprintln!("Failed to drop test schema {}: {}", self.schema_name, e);
+            eprintln!("[TEST_CLEANUP] ❌ Failed to drop test schema {}: {}", self.schema_name, e);
         } else {
-            info!("Test schema {} dropped successfully", self.schema_name);
+            info!("[TEST_CLEANUP] ✅ Test schema {} dropped successfully", self.schema_name);
         }
     }
 }
@@ -142,15 +152,15 @@ impl Drop for TestContext {
             let pool = self.pool.clone();
 
             handle.spawn(async move {
-                info!("Dropping test schema: {}", schema_name);
+                info!("[TEST_CLEANUP] Starting cleanup for test schema: {}", schema_name);
 
                 if let Err(e) = sqlx::query(&format!("DROP SCHEMA {schema_name} CASCADE"))
                     .execute(&pool)
                     .await
                 {
-                    eprintln!("Failed to drop test schema {schema_name}: {e}");
+                    eprintln!("[TEST_CLEANUP] ❌ Failed to drop test schema {schema_name}: {e}");
                 } else {
-                    info!("Test schema {} dropped successfully", schema_name);
+                    info!("[TEST_CLEANUP] ✅ Test schema {} dropped successfully", schema_name);
                 }
             });
         }
