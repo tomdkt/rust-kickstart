@@ -14,18 +14,21 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_get_all_users_empty() {
+    // Arrange
     let ctx = TestContext::new().await;
-
     let request = Request::builder()
         .uri("/users")
         .body(Body::empty())
         .unwrap();
 
+    // Act
     let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
+    let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let users: Vec<Value> = serde_json::from_slice(&body).unwrap();
+
+    // Assert
+    assert_eq!(status, StatusCode::OK, "Should return OK status");
     assert!(users.is_empty(), "Users list should be empty initially");
 
     ctx.cleanup().await;
@@ -33,13 +36,12 @@ async fn test_get_all_users_empty() {
 
 #[tokio::test]
 async fn test_create_user() {
+    // Arrange
     let ctx = TestContext::new().await;
-
     let new_user = json!({
         "name": "John Doe",
         "age": 30
     });
-
     let request = Request::builder()
         .method("POST")
         .uri("/users")
@@ -47,111 +49,123 @@ async fn test_create_user() {
         .body(Body::from(serde_json::to_string(&new_user).unwrap()))
         .unwrap();
 
+    // Act
     let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
+    let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let created_user: Value = serde_json::from_slice(&body).unwrap();
 
-    assert_eq!(created_user["name"], "John Doe");
-    assert_eq!(created_user["age"], 30);
-    assert!(created_user["id"].is_number());
+    // Assert
+    assert_eq!(status, StatusCode::OK, "Should return OK status");
+    assert_eq!(created_user["name"], "John Doe", "User name should match input");
+    assert_eq!(created_user["age"], 30, "User age should match input");
+    assert!(created_user["id"].is_number(), "User ID should be a number");
 
     ctx.cleanup().await;
 }
 
 #[tokio::test]
 async fn test_get_user_not_found() {
+    // Arrange
     let ctx = TestContext::new().await;
-
+    let nonexistent_user_id = 999;
     let request = Request::builder()
-        .uri("/users/999")
+        .uri(format!("/users/{nonexistent_user_id}"))
         .body(Body::empty())
         .unwrap();
 
+    // Act
     let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    // Assert
+    assert_eq!(response.status(), StatusCode::NOT_FOUND, "Should return NOT_FOUND for nonexistent user");
 
     ctx.cleanup().await;
 }
 
 #[tokio::test]
 async fn test_full_crud_workflow() {
+    // Arrange
     let ctx = TestContext::new().await;
-
-    // 1. Create user
-    let new_user = json!({
+    let original_user = json!({
         "name": "Alice Smith",
         "age": 28
     });
-
-    let request = Request::builder()
-        .method("POST")
-        .uri("/users")
-        .header("content-type", "application/json")
-        .body(Body::from(serde_json::to_string(&new_user).unwrap()))
-        .unwrap();
-
-    let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let created_user: Value = serde_json::from_slice(&body).unwrap();
-    let user_id = created_user["id"].as_i64().unwrap();
-
-    // 2. Get user by ID
-    let request = Request::builder()
-        .uri(format!("/users/{user_id}"))
-        .body(Body::empty())
-        .unwrap();
-
-    let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let user: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(user["name"], "Alice Smith");
-    assert_eq!(user["age"], 28);
-
-    // 3. Update user
-    let update_data = json!({
+    let updated_user_data = json!({
         "name": "Alice Johnson",
         "age": 29
     });
 
-    let request = Request::builder()
+    // Act & Assert - Create user
+    let create_request = Request::builder()
+        .method("POST")
+        .uri("/users")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_string(&original_user).unwrap()))
+        .unwrap();
+
+    let create_response = ctx.app.clone().oneshot(create_request).await.unwrap();
+    let create_status = create_response.status();
+    let create_body = create_response.into_body().collect().await.unwrap().to_bytes();
+    let created_user: Value = serde_json::from_slice(&create_body).unwrap();
+    let user_id = created_user["id"].as_i64().unwrap();
+
+    assert_eq!(create_status, StatusCode::OK, "User creation should succeed");
+    assert_eq!(created_user["name"], "Alice Smith", "Created user name should match");
+    assert_eq!(created_user["age"], 28, "Created user age should match");
+
+    // Act & Assert - Get user by ID
+    let get_request = Request::builder()
+        .uri(format!("/users/{user_id}"))
+        .body(Body::empty())
+        .unwrap();
+
+    let get_response = ctx.app.clone().oneshot(get_request).await.unwrap();
+    let get_status = get_response.status();
+    let get_body = get_response.into_body().collect().await.unwrap().to_bytes();
+    let retrieved_user: Value = serde_json::from_slice(&get_body).unwrap();
+
+    assert_eq!(get_status, StatusCode::OK, "User retrieval should succeed");
+    assert_eq!(retrieved_user["name"], "Alice Smith", "Retrieved user name should match");
+    assert_eq!(retrieved_user["age"], 28, "Retrieved user age should match");
+
+    // Act & Assert - Update user
+    let update_request = Request::builder()
         .method("PUT")
         .uri(format!("/users/{user_id}"))
         .header("content-type", "application/json")
-        .body(Body::from(serde_json::to_string(&update_data).unwrap()))
+        .body(Body::from(serde_json::to_string(&updated_user_data).unwrap()))
         .unwrap();
 
-    let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    let update_response = ctx.app.clone().oneshot(update_request).await.unwrap();
+    let update_status = update_response.status();
+    let update_body = update_response.into_body().collect().await.unwrap().to_bytes();
+    let updated_user: Value = serde_json::from_slice(&update_body).unwrap();
 
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let updated_user: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(updated_user["name"], "Alice Johnson");
-    assert_eq!(updated_user["age"], 29);
+    assert_eq!(update_status, StatusCode::OK, "User update should succeed");
+    assert_eq!(updated_user["name"], "Alice Johnson", "Updated user name should match");
+    assert_eq!(updated_user["age"], 29, "Updated user age should match");
 
-    // 4. Delete user
-    let request = Request::builder()
+    // Act & Assert - Delete user
+    let delete_request = Request::builder()
         .method("DELETE")
         .uri(format!("/users/{user_id}"))
         .body(Body::empty())
         .unwrap();
 
-    let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    let delete_response = ctx.app.clone().oneshot(delete_request).await.unwrap();
+    let delete_status = delete_response.status();
+    assert_eq!(delete_status, StatusCode::OK, "User deletion should succeed");
 
-    // 5. Verify user is deleted
-    let request = Request::builder()
+    // Act & Assert - Verify user is deleted
+    let verify_request = Request::builder()
         .uri(format!("/users/{user_id}"))
         .body(Body::empty())
         .unwrap();
 
-    let response = ctx.app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let verify_response = ctx.app.clone().oneshot(verify_request).await.unwrap();
+    let verify_status = verify_response.status();
+    assert_eq!(verify_status, StatusCode::NOT_FOUND, "Deleted user should not be found");
 
     ctx.cleanup().await;
 }
