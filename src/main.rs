@@ -38,10 +38,15 @@ async fn main() {
     // Print clickable links
     #[allow(clippy::print_stdout)]
     {
+        let display_addr = match config.environment.as_str() {
+            "development" => format!("localhost:{}", local_addr.port()),
+            _ => local_addr.to_string(),
+        };
+        
         println!("\n🚀 Server running!");
-        println!("📍 Local:    http://{local_addr}");
-        println!("📖 Docs:     http://{local_addr}/swagger-ui");
-        println!("🔗 API:      http://{local_addr}/api-docs/openapi.json");
+        println!("📍 Local:    http://{display_addr}");
+        println!("📖 Docs:     http://{display_addr}/swagger-ui");
+        println!("🔗 API:      http://{display_addr}/api-docs/openapi.json");
         println!("\nPress Ctrl+C to stop\n");
     }
 
