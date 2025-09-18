@@ -2,10 +2,13 @@
 //! 
 //! This module provides user management functionality with proper separation of concerns.
 //! External modules can only access the UserService, not the repository or controller directly.
+//! 
+//! The service layer is now modularized into separate service modules for better maintainability.
 
 pub mod domain;
 pub mod repository;
 pub mod service;
+pub mod services;
 pub mod controller;
 
 // Public exports - only UserService is exposed to other modules
