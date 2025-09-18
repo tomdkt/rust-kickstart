@@ -103,3 +103,165 @@ pub fn validate_range<T: PartialOrd + std::fmt::Display>(
         Err(errors)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_name_valid() {
+        assert!(validate_name("John Doe", "name").is_ok());
+        assert!(validate_name("Mary Jane", "name").is_ok());
+        assert!(validate_name("José", "name").is_ok());
+    }
+
+    #[test]
+    fn test_validate_name_empty() {
+        let result = validate_name("", "name");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].field, Some("name".to_string()));
+        assert!(errors[0].message.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_name_whitespace_only() {
+        let result = validate_name("   ", "name");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_name_too_long() {
+        let long_name = "a".repeat(101);
+        let result = validate_name(&long_name, "name");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("cannot exceed 100 characters")));
+    }
+
+    #[test]
+    fn test_validate_name_with_numbers() {
+        let result = validate_name("John123", "name");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("cannot contain numbers")));
+    }
+
+    #[test]
+    fn test_validate_name_multiple_errors() {
+        let result = validate_name("123", "name");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1); // Only the numbers error since it's not empty
+        assert!(errors[0].message.contains("cannot contain numbers"));
+    }
+
+    #[test]
+    fn test_validate_age_valid() {
+        assert!(validate_age(25, "age").is_ok());
+        assert!(validate_age(1, "age").is_ok());
+        assert!(validate_age(150, "age").is_ok());
+    }
+
+    #[test]
+    fn test_validate_age_negative() {
+        let result = validate_age(-1, "age");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("cannot be negative")));
+    }
+
+    #[test]
+    fn test_validate_age_zero() {
+        let result = validate_age(0, "age");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("must be greater than 0")));
+    }
+
+    #[test]
+    fn test_validate_age_too_high() {
+        let result = validate_age(151, "age");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("cannot exceed 150 years")));
+    }
+
+    #[test]
+    fn test_validate_allowed_characters_valid() {
+        assert!(validate_allowed_characters("Hello World", "field", "!@#").is_ok());
+        assert!(validate_allowed_characters("Test", "field", "").is_ok());
+    }
+
+    #[test]
+    fn test_validate_allowed_characters_invalid() {
+        let result = validate_allowed_characters("Hello@World", "field", "");
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors[0].message.contains("invalid characters"));
+    }
+
+    #[test]
+    fn test_validate_min_length_valid() {
+        assert!(validate_min_length("hello", "field", 3).is_ok());
+        assert!(validate_min_length("hello", "field", 5).is_ok());
+    }
+
+    #[test]
+    fn test_validate_min_length_invalid() {
+        let result = validate_min_length("hi", "field", 5);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors[0].message.contains("at least 5 characters"));
+    }
+
+    #[test]
+    fn test_validate_max_length_valid() {
+        assert!(validate_max_length("hello", "field", 10).is_ok());
+        assert!(validate_max_length("hello", "field", 5).is_ok());
+    }
+
+    #[test]
+    fn test_validate_max_length_invalid() {
+        let result = validate_max_length("hello world", "field", 5);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors[0].message.contains("cannot exceed 5 characters"));
+    }
+
+    #[test]
+    fn test_validate_range_valid() {
+        assert!(validate_range(5, "field", 1, 10).is_ok());
+        assert!(validate_range(1, "field", 1, 10).is_ok());
+        assert!(validate_range(10, "field", 1, 10).is_ok());
+    }
+
+    #[test]
+    fn test_validate_range_below_min() {
+        let result = validate_range(0, "field", 1, 10);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("at least 1")));
+    }
+
+    #[test]
+    fn test_validate_range_above_max() {
+        let result = validate_range(11, "field", 1, 10);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.message.contains("cannot exceed 10")));
+    }
+
+    #[test]
+    fn test_validate_range_both_errors() {
+        let result = validate_range(-5, "field", 1, 10);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert_eq!(errors.len(), 1); // Only min error since -5 < 1
+        assert!(errors[0].message.contains("at least 1"));
+    }
+}

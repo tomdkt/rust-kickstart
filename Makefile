@@ -1,4 +1,4 @@
-.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/verbose check help
+.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/unit test/integration test/verbose check help
 
 # Start app
 dev:
@@ -28,11 +28,24 @@ db:
 	@echo "✅ Database setup completed successfully!"
 
 
+# Run unit tests (fast, no database required)
+test/unit:
+	@echo "🧪 Running unit tests..."
+	@cargo test --lib -- --nocapture
+
 # Run integration tests (requires database to be running)
-test:
+test/integration:
 	@echo "🧪 Running integration tests..."
-	@echo "🔬 Running tests with logging..."
-	@RUST_LOG=info cargo test -- --nocapture
+	@echo "📦 Ensuring database is running..."
+	@$(MAKE) infra/raise
+	@echo "🔬 Running integration tests with logging..."
+	@RUST_LOG=info cargo test --test integration_user --test integration_bank_user -- --nocapture
+
+# Run all tests (unit + integration)
+test:
+	@echo "🧪 Running all tests..."
+	@$(MAKE) test/unit
+	@$(MAKE) test/integration
 
 
 # Run all code quality checks (format, lint, test)
@@ -51,7 +64,9 @@ help:
 	@echo "Available commands:"
 	@echo "  dev            - Start development server with hot reload"
 	@echo "  db             - Complete database setup (idempotent) 🚀"
-	@echo "  test           - Run integration tests with logging"
+	@echo "  test           - Run all tests (unit + integration)"
+	@echo "  test/unit      - Run unit tests only (fast, no database)"
+	@echo "  test/integration - Run integration tests (requires database)"
 	@echo "  check          - Run all code quality checks (format, lint, test)"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"
