@@ -8,7 +8,7 @@
 use axum::{
     Json, Router,
     response::Html,
-    routing::{get, post, put, delete},
+    routing::{get, post},
 };
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;

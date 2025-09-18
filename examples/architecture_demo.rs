@@ -4,7 +4,7 @@
 //! 
 //! This example shows how the modular architecture works in practice.
 
-use rust_kickstart::{UserService, BankService, CreateUser};
+// use rust_kickstart::{UserService, BankService, CreateUser};
 
 #[tokio::main]
 async fn main() {

@@ -58,10 +58,13 @@ pub struct ApiResponse {
 /// Domain errors for user operations
 #[derive(Debug, thiserror::Error)]
 pub enum UserError {
+    /// Validation errors occurred during user data processing
     #[error("Validation failed")]
     ValidationError(Vec<ValidationError>),
+    /// User was not found in the database
     #[error("User not found")]
     NotFound,
+    /// Database operation failed
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

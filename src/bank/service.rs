@@ -119,22 +119,31 @@ impl BankService {
 /// Account information combining user and bank data
 #[derive(Debug, Clone)]
 pub struct AccountInfo {
+    /// User's unique identifier
     pub user_id: i32,
+    /// User's full name
     pub user_name: String,
+    /// User's age in years
     pub user_age: i32,
+    /// Current account balance
     pub account_balance: f64,
+    /// Account status (Active, Inactive, etc.)
     pub account_status: String,
 }
 
 /// Bank-specific errors
 #[derive(Debug, thiserror::Error)]
 pub enum BankError {
+    /// User was not found in the system
     #[error("User not found")]
     UserNotFound,
+    /// Error from the underlying user service
     #[error("User service error: {0}")]
     UserServiceError(UserError),
+    /// Account has insufficient funds for the operation
     #[error("Insufficient funds")]
     InsufficientFunds,
+    /// Bank account was not found
     #[error("Account not found")]
     AccountNotFound,
 }

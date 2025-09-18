@@ -7,6 +7,7 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
+#[allow(dead_code)]
 pub struct TestContext {
     pub app: axum::Router,
     pub schema_name: String,
@@ -97,6 +98,7 @@ impl TestContext {
     }
 
     /// Returns a reference to the test database pool for service creation
+    #[allow(dead_code)]
     pub fn get_test_pool(&self) -> &PgPool {
         &self.test_pool
     }
