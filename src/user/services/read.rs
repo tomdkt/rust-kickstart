@@ -6,6 +6,7 @@ use tracing::{info, warn};
 
 use crate::user::domain::{User, UserError, PaginationParams, PaginatedUsersResponse};
 use crate::user::repository::UserRepository;
+use crate::pagination::PaginationToken;
 
 /// Service for reading users
 pub struct ReadUserService;
@@ -37,8 +38,8 @@ impl ReadUserService {
         }
     }
 
-    /// Retrieves users with pagination
-    #[tracing::instrument(skip(repository), fields(last_id = params.last_id, limit = params.limit))]
+    /// Retrieves users with pagination using cursor tokens
+    #[tracing::instrument(skip(repository), fields(next_token = params.next_token.as_deref(), limit = params.limit))]
     pub(in crate::user) async fn get_users_paginated(
         repository: &UserRepository,
         params: PaginationParams,
@@ -46,10 +47,20 @@ impl ReadUserService {
         // Default limit is 200, max is 200
         let limit = params.limit.unwrap_or(200).min(200).max(1);
         
-        info!(last_id = params.last_id, limit = limit, "ReadUserService: Fetching paginated users");
+        info!(next_token = params.next_token.as_deref(), limit = limit, "ReadUserService: Fetching paginated users");
+
+        // Decode the pagination token if provided
+        let cursor = match params.next_token {
+            Some(token) => {
+                let (last_id, last_timestamp) = PaginationToken::decode(&token)
+                    .map_err(|_| UserError::InvalidToken)?;
+                Some((last_id, last_timestamp))
+            }
+            None => None,
+        };
 
         // Fetch one extra record to check if there are more pages
-        let users = repository.find_paginated(params.last_id, limit + 1).await?;
+        let users = repository.find_paginated(cursor, limit + 1).await?;
         
         let has_more = users.len() > limit as usize;
         let mut result_users = users;
@@ -59,19 +70,28 @@ impl ReadUserService {
             result_users.pop();
         }
         
-        let last_id = result_users.last().map(|user| user.id);
+        // Generate next token if there are more pages
+        let next_token = if has_more {
+            result_users.last().map(|user| {
+                PaginationToken::encode(user.id, user.created_at)
+                    .unwrap_or_else(|_| String::new())
+            }).filter(|token| !token.is_empty())
+        } else {
+            None
+        };
+        
         let count = result_users.len();
         
         info!(
             count = count,
-            last_id = last_id,
             has_more = has_more,
+            next_token = next_token.as_deref(),
             "ReadUserService: Successfully fetched paginated users"
         );
 
         Ok(PaginatedUsersResponse {
             users: result_users,
-            last_id,
+            next_token,
             has_more,
             count,
         })

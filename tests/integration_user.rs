@@ -25,11 +25,14 @@ async fn test_get_all_users_empty() {
     let response = ctx.app.clone().oneshot(request).await.unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let users: Vec<Value> = serde_json::from_slice(&body).unwrap();
+    let paginated_response: Value = serde_json::from_slice(&body).unwrap();
 
     // Assert
     assert_eq!(status, StatusCode::OK, "Should return OK status");
-    assert!(users.is_empty(), "Users list should be empty initially");
+    assert_eq!(paginated_response["users"].as_array().unwrap().len(), 0, "Users list should be empty initially");
+    assert_eq!(paginated_response["count"], 0, "Count should be 0");
+    assert_eq!(paginated_response["has_more"], false, "Should not have more pages");
+    assert!(paginated_response["next_token"].is_null(), "Next token should be null");
 
     ctx.cleanup().await;
 }
@@ -166,6 +169,66 @@ async fn test_full_crud_workflow() {
     let verify_response = ctx.app.clone().oneshot(verify_request).await.unwrap();
     let verify_status = verify_response.status();
     assert_eq!(verify_status, StatusCode::NOT_FOUND, "Deleted user should not be found");
+
+    ctx.cleanup().await;
+}
+
+#[tokio::test]
+async fn test_pagination_basic() {
+    // Arrange
+    let ctx = TestContext::new().await;
+
+    // Test basic pagination without tokens first
+    let request = Request::builder()
+        .uri("/users")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = ctx.app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let paginated_response: Value = serde_json::from_slice(&body).unwrap();
+    
+    // Should have paginated structure
+    assert!(paginated_response.get("users").is_some());
+    assert!(paginated_response.get("count").is_some());
+    assert!(paginated_response.get("has_more").is_some());
+    assert!(paginated_response.get("next_token").is_some());
+
+    ctx.cleanup().await;
+}
+
+#[tokio::test]
+async fn test_pagination_with_limit() {
+    // Arrange
+    let ctx = TestContext::new().await;
+
+    // Test pagination with limit parameter
+    let request = Request::builder()
+        .uri("/users?limit=100")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = ctx.app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    ctx.cleanup().await;
+}
+
+#[tokio::test]
+async fn test_invalid_pagination_token() {
+    // Arrange
+    let ctx = TestContext::new().await;
+
+    // Test with invalid token
+    let request = Request::builder()
+        .uri("/users?next_token=invalid_token")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = ctx.app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     ctx.cleanup().await;
 }

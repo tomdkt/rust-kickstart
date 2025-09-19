@@ -5,6 +5,7 @@
 
 use sqlx::PgPool;
 use tracing::{error, info, warn};
+use chrono::{DateTime, Utc};
 
 use super::domain::{User, CreateUser, UpdateUser, UserError};
 
@@ -26,7 +27,7 @@ impl UserRepository {
 
         let user = sqlx::query_as!(
             User,
-            "INSERT INTO users (name, age) VALUES ($1, $2) RETURNING id, name, age",
+            "INSERT INTO users (name, age) VALUES ($1, $2) RETURNING id, name, age, created_at",
             user_data.name.trim(),
             user_data.age
         )
@@ -45,7 +46,7 @@ impl UserRepository {
     pub(super) async fn find_all(&self) -> Result<Vec<User>, UserError> {
         info!("Fetching all users from database");
 
-        let users = sqlx::query_as!(User, "SELECT id, name, age FROM users ORDER BY id")
+        let users = sqlx::query_as!(User, "SELECT id, name, age, created_at FROM users ORDER BY created_at, id")
             .fetch_all(&self.pool)
             .await
             .map_err(|e| {
@@ -57,18 +58,22 @@ impl UserRepository {
         Ok(users)
     }
 
-    /// Retrieves users with pagination from the database
-    pub(super) async fn find_paginated(&self, last_id: Option<i32>, limit: i32) -> Result<Vec<User>, UserError> {
-        info!(last_id = last_id, limit = limit, "Fetching paginated users from database");
+    /// Retrieves users with pagination from the database using cursor-based pagination
+    pub(super) async fn find_paginated(&self, cursor: Option<(i32, DateTime<Utc>)>, limit: i32) -> Result<Vec<User>, UserError> {
+        info!(cursor = ?cursor, limit = limit, "Fetching paginated users from database");
 
         let limit_i64 = limit as i64;
 
-        let users = match last_id {
-            Some(id) => {
+        let users = match cursor {
+            Some((last_id, last_timestamp)) => {
                 sqlx::query_as!(
                     User,
-                    "SELECT id, name, age FROM users WHERE id > $1 ORDER BY id LIMIT $2",
-                    id,
+                    "SELECT id, name, age, created_at FROM users 
+                     WHERE (created_at, id) > ($1, $2) 
+                     ORDER BY created_at, id 
+                     LIMIT $3",
+                    last_timestamp,
+                    last_id,
                     limit_i64
                 )
                 .fetch_all(&self.pool)
@@ -77,7 +82,9 @@ impl UserRepository {
             None => {
                 sqlx::query_as!(
                     User,
-                    "SELECT id, name, age FROM users ORDER BY id LIMIT $1",
+                    "SELECT id, name, age, created_at FROM users 
+                     ORDER BY created_at, id 
+                     LIMIT $1",
                     limit_i64
                 )
                 .fetch_all(&self.pool)
@@ -85,11 +92,11 @@ impl UserRepository {
             }
         }
         .map_err(|e| {
-            error!(error = %e, last_id = last_id, limit = limit, "Failed to fetch paginated users from database");
+            error!(error = %e, cursor = ?cursor, limit = limit, "Failed to fetch paginated users from database");
             UserError::DatabaseError(e.to_string())
         })?;
 
-        info!(count = users.len(), last_id = last_id, limit = limit, "Paginated users fetched successfully from database");
+        info!(count = users.len(), cursor = ?cursor, limit = limit, "Paginated users fetched successfully from database");
         Ok(users)
     }
 
@@ -127,7 +134,7 @@ impl UserRepository {
 
         let updated_user = sqlx::query_as!(
             User,
-            "UPDATE users SET name = $1, age = $2 WHERE id = $3 RETURNING id, name, age",
+            "UPDATE users SET name = $1, age = $2 WHERE id = $3 RETURNING id, name, age, created_at",
             name,
             age,
             id

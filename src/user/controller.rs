@@ -45,8 +45,8 @@ pub async fn create_user_handler(
             error!(error = %msg, "Controller: Database error in create user");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
-        Err(UserError::NotFound) => {
-            // This shouldn't happen in create, but handle it anyway
+        Err(UserError::NotFound | UserError::InvalidToken) => {
+            // These shouldn't happen in create, but handle them anyway
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
@@ -58,7 +58,7 @@ pub async fn create_user_handler(
     path = "/users",
     tag = "users",
     params(
-        ("last_id" = Option<i32>, Query, description = "Last user ID from previous page for pagination (exclusive)"),
+        ("next_token" = Option<String>, Query, description = "Pagination token from previous page (opaque cursor)"),
         ("limit" = Option<i32>, Query, description = "Number of records to return (default: 200, max: 200)")
     ),
     responses(
@@ -66,7 +66,7 @@ pub async fn create_user_handler(
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(skip(app_state), fields(last_id = params.last_id, limit = params.limit))]
+#[tracing::instrument(skip(app_state), fields(next_token = params.next_token.as_deref(), limit = params.limit))]
 pub async fn get_all_users_handler(
     State(app_state): State<crate::AppState>,
     Query(params): Query<PaginationParams>,
@@ -74,6 +74,10 @@ pub async fn get_all_users_handler(
     let user_service = app_state.user_service;
     match user_service.get_users_paginated(params).await {
         Ok(response) => (StatusCode::OK, Json(response)).into_response(),
+        Err(UserError::InvalidToken) => {
+            warn!("Controller: Invalid pagination token provided");
+            StatusCode::BAD_REQUEST.into_response()
+        }
         Err(UserError::DatabaseError(msg)) => {
             error!(error = %msg, "Controller: Database error in get users");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -162,6 +166,10 @@ pub async fn update_user_handler(
         }
         Err(UserError::DatabaseError(msg)) => {
             error!(error = %msg, user_id = id, "Controller: Database error in update user");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+        Err(UserError::InvalidToken) => {
+            // This shouldn't happen in update, but handle it anyway
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }

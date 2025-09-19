@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use chrono::{DateTime, Utc};
 
 /// Request payload for creating a new user
 #[derive(Deserialize, ToSchema, Debug, Clone)]
@@ -30,6 +31,8 @@ pub struct User {
     pub name: String,
     /// User's age in years
     pub age: i32,
+    /// When the user was created
+    pub created_at: DateTime<Utc>,
 }
 
 /// Individual validation error
@@ -58,8 +61,8 @@ pub struct ApiResponse {
 /// Pagination parameters for user queries
 #[derive(Deserialize, ToSchema, Debug, Clone)]
 pub struct PaginationParams {
-    /// Last user ID from previous page for pagination (exclusive)
-    pub last_id: Option<i32>,
+    /// Pagination token from previous page (opaque cursor)
+    pub next_token: Option<String>,
     /// Number of records to return (default: 200, max: 200)
     pub limit: Option<i32>,
 }
@@ -69,8 +72,8 @@ pub struct PaginationParams {
 pub struct PaginatedUsersResponse {
     /// List of users for this page
     pub users: Vec<User>,
-    /// ID of the last user in this page (for next page pagination)
-    pub last_id: Option<i32>,
+    /// Token for the next page (opaque cursor)
+    pub next_token: Option<String>,
     /// Whether there are more users available
     pub has_more: bool,
     /// Total number of users returned in this page
@@ -89,5 +92,8 @@ pub enum UserError {
     /// Database operation failed
     #[error("Database error: {0}")]
     DatabaseError(String),
+    /// Invalid pagination token
+    #[error("Invalid pagination token")]
+    InvalidToken,
 }
 

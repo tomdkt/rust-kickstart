@@ -21,6 +21,7 @@ use utoipa::OpenApi;
 pub mod bank;
 pub mod config;
 pub mod health;
+pub mod pagination;
 pub mod user;
 
 // Re-export commonly used types
