@@ -1,20 +1,67 @@
 services:
-  # Jaeger - Distributed tracing platform
-  jaeger:
-    image: jaegertracing/all-in-one:1.60
-    container_name: jaeger
+  # PostgreSQL - Metadata database for Uptrace (separate from main app)
+  uptrace-postgres:
+    image: postgres:16-alpine
+    container_name: uptrace-postgres
     restart: unless-stopped
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "14268:14268"  # Jaeger HTTP collector
-      - "14250:14250"  # Jaeger gRPC collector
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
     environment:
-      - COLLECTOR_OTLP_ENABLED=true
-      - LOG_LEVEL=debug
+      POSTGRES_USER: uptrace
+      POSTGRES_PASSWORD: uptrace
+      POSTGRES_DB: uptrace
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:16686/"]
+      test: ["CMD-SHELL", "pg_isready -U uptrace -d uptrace"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - uptrace_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with main app postgres
+    networks:
+      - uptrace-network
+
+  # ClickHouse - Telemetry data storage for Uptrace
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: uptrace
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'localhost:8123/ping']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - uptrace_clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native interface
+    networks:
+      - uptrace-network
+
+  # Uptrace - All-in-one observability platform
+  uptrace:
+    image: uptrace/uptrace:1.7.0
+    container_name: uptrace
+    restart: unless-stopped
+    volumes:
+      - ./uptrace.yml:/etc/uptrace/uptrace.yml:ro
+    ports:
+      - "14317:14317"  # OTLP gRPC receiver
+      - "14318:14318"  # OTLP HTTP receiver  
+      - "14319:14319"  # Uptrace UI
+    environment:
+      - UPTRACE_CONFIG_PATH=/etc/uptrace/uptrace.yml
+    networks:
+      - uptrace-network
+    depends_on:
+      uptrace-postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:14319/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -39,4 +86,11 @@ services:
     profiles:
       - collector
 
-# No volumes needed for Jaeger all-in-one (uses in-memory storage)
+volumes:
+  uptrace_postgres_data:
+  uptrace_clickhouse_data:
+
+networks:
+  uptrace-network:
+    name: uptrace-network
+    driver: bridge

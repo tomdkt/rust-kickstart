@@ -1,6 +1,6 @@
 # Observability Setup Guide
 
-This project includes a comprehensive observability setup with OpenTelemetry and Jaeger for distributed tracing, metrics, and logging.
+This project includes a comprehensive observability setup with OpenTelemetry and Uptrace for distributed tracing, metrics, and logging.
 
 ## Quick Start
 
@@ -15,12 +15,13 @@ This command will:
 - Start OpenTelemetry Collector (optional, for advanced routing)
 - Set up all necessary networking and volumes
 
-### 2. Access Jaeger UI
+### 2. Access Uptrace UI
 
-Open your browser and navigate to: **http://localhost:16686**
+Open your browser and navigate to: **http://localhost:14319**
 
 Default credentials:
-- No authentication required for local development
+- Email: `uptrace@localhost`
+- Password: `uptrace`
 
 ### 3. Start Your Application
 
@@ -28,21 +29,21 @@ Default credentials:
 make dev
 ```
 
-Your application will automatically send traces, metrics, and logs to Jaeger.
+Your application will automatically send traces, metrics, and logs to Uptrace.
 
 ## Architecture Overview
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Application   │───▶│ OpenTelemetry    │───▶│     Jaeger      │
+│   Application   │───▶│ OpenTelemetry    │───▶│     Uptrace     │
 │  (Rust + OTLP)  │    │   Collector      │    │  (Storage + UI) │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                       ┌─────────────────┐
-                       │   In-Memory     │
-                       │    Storage      │
-                       └─────────────────┘
+                              │                         │
+                              ▼                         ▼
+                       ┌─────────────────┐    ┌─────────────────┐
+                       │   ClickHouse    │    │   ClickHouse    │
+                       │   (Database)    │    │   (Database)    │
+                       └─────────────────┘    └─────────────────┘
 ```
 
 ## Configuration
@@ -53,7 +54,7 @@ The application uses these environment variables for observability:
 
 ```bash
 # Required - OpenTelemetry endpoint
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
 
 # Service identification
 OTEL_SERVICE_NAME=rust-kickstart
@@ -72,14 +73,14 @@ OTEL_LOGS_EXPORTER=otlp
 
 The observability setup is designed to be backend-agnostic. You can easily switch between different observability backends:
 
-#### Jaeger (Default)
+#### Uptrace (Default)
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
 ```
 
 #### Jaeger
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14268/api/traces
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ```
 
 #### Grafana Cloud
@@ -88,10 +89,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/o
 # Add authentication headers as needed
 ```
 
-#### Uptrace
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
-```
+
 
 #### Custom OpenTelemetry Collector
 ```bash
@@ -196,25 +194,31 @@ error!(
 );
 ```
 
-## Jaeger Features
+## Uptrace Features
 
 ### Traces View
-- **Trace timeline** with span hierarchy
-- **Service map** showing dependencies
+- **Trace timeline** with span hierarchy and waterfall view
+- **Service map** showing dependencies and performance metrics
 - **Performance analysis** with bottleneck identification
-- **Error tracking** with detailed span information
+- **Error tracking** with detailed span information and stack traces
+
+### Metrics Dashboard
+- **Real-time metrics** with customizable dashboards
+- **Service performance** metrics (latency, throughput, error rate)
+- **Infrastructure metrics** (CPU, memory, disk usage)
+- **Custom business metrics** with alerting capabilities
 
 ### Search and Filter
-- **Service-based search** to find traces by service
-- **Operation filtering** to focus on specific endpoints
-- **Tag-based queries** for advanced filtering
-- **Time range selection** for historical analysis
+- **Advanced search** with SQL-like queries
+- **Service-based filtering** to focus on specific services
+- **Attribute-based queries** for complex filtering
+- **Time range selection** with zoom and pan capabilities
 
-### Trace Analysis
-- **Span details** with timing and metadata
-- **Dependency graph** showing service interactions
-- **Critical path analysis** for performance optimization
-- **Error span highlighting** for quick debugging
+### Alerting and Monitoring
+- **Smart alerts** based on anomaly detection
+- **Custom alert rules** for business metrics
+- **Integration** with popular notification channels
+- **SLA monitoring** with uptime tracking
 
 ## Advanced Configuration
 
@@ -264,10 +268,10 @@ OTEL_RESOURCE_ATTRIBUTES="service.name=rust-kickstart,service.version=0.1.0,depl
 ## Production Deployment
 
 ### Security Considerations
-- **Authentication** for Uptrace UI in production
+- **Authentication** for Uptrace UI in production (configure in uptrace.yml)
 - **TLS encryption** for OTLP endpoints
 - **Network policies** to restrict access
-- **Data retention** policies for compliance
+- **Data retention** policies for compliance (configurable in ClickHouse)
 
 ### Performance Optimization
 - **Sampling strategies** to control data volume
@@ -278,8 +282,8 @@ OTEL_RESOURCE_ATTRIBUTES="service.name=rust-kickstart,service.version=0.1.0,depl
 ### High Availability
 - **Multiple collector instances** for redundancy
 - **Load balancing** across collectors
-- **Persistent storage** for Uptrace data
-- **Backup strategies** for observability data
+- **ClickHouse clustering** for persistent storage
+- **Backup strategies** for ClickHouse data
 
 ## Troubleshooting
 
@@ -288,8 +292,9 @@ OTEL_RESOURCE_ATTRIBUTES="service.name=rust-kickstart,service.version=0.1.0,depl
 #### No traces appearing in Uptrace
 1. Check if observability stack is running: `docker ps`
 2. Verify OTLP endpoint: `curl http://localhost:14318/v1/traces`
-3. Check application logs for OpenTelemetry errors
-4. Verify environment variables are set correctly
+3. Check Uptrace logs: `docker logs uptrace`
+4. Check ClickHouse connectivity: `docker logs clickhouse`
+5. Verify environment variables are set correctly
 
 #### High memory usage
 1. Adjust sampling rate to reduce data volume
@@ -312,13 +317,19 @@ docker compose -f docker-compose.observability.yaml ps
 # View Uptrace logs
 docker logs uptrace
 
-# View collector logs
+# View ClickHouse logs
+docker logs clickhouse
+
+# View collector logs (if using collector profile)
 docker logs otel-collector
 
 # Test OTLP endpoint
 curl -X POST http://localhost:14318/v1/traces \
   -H "Content-Type: application/x-protobuf" \
   --data-binary @/dev/null
+
+# Check Uptrace UI health
+curl http://localhost:14319/api/v1/health
 
 # Check application telemetry
 RUST_LOG=opentelemetry=debug,tracing_opentelemetry=debug cargo run
@@ -341,6 +352,20 @@ To temporarily disable OpenTelemetry without stopping the stack:
 ```bash
 unset OTEL_EXPORTER_OTLP_ENDPOINT
 ```
+
+### Access Uptrace Projects
+
+Uptrace supports multiple projects for organizing different applications:
+
+- **Project 1 (Uptrace)**: Used for monitoring Uptrace itself
+  - Token: `project1_secret_token`
+  - URL: `http://localhost:14319/1`
+
+- **Project 2 (My project)**: For your application
+  - Token: `project2_secret_token` 
+  - URL: `http://localhost:14319/2`
+
+You can configure additional projects in `uptrace.yml` as needed.
 
 ## Integration with CI/CD
 

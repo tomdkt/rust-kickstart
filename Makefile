@@ -1,9 +1,12 @@
-.PHONY: dev dev/optimized infra/raise infra/down db db/clean test test/unit test/integration check observability observability/destroy help
+.PHONY: dev dev/optimized dev/shutdown infra/raise infra/down db db/clean test test/unit test/integration check observability observability/destroy help
 
 # Start app
 dev:
 	@$(MAKE) infra/raise
-	cargo watch -x run
+	@RUST_LOG=info cargo watch -x 'run' --why --clear
+
+dev/shutdown:
+	@pkill -f rust-kickstart 2>/dev/null || echo "No rust-kickstart processes found"
 
 dev/optimized:
 	@$(MAKE) infra/raise
@@ -67,16 +70,17 @@ check:
 	@$(MAKE) test
 	@echo "✅ All checks passed!"
 
-# Start observability stack (Jaeger + OpenTelemetry)
+# Start observability stack (Uptrace + OpenTelemetry)
 observability:
 	@echo "🔍 Starting observability stack..."
-	@echo "📊 Starting Jaeger and OpenTelemetry services..."
+	@echo "📊 Starting Uptrace and OpenTelemetry services..."
 	@docker compose -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
 	@echo "✅ Observability stack started successfully!"
-	@echo "🌐 Jaeger UI: http://localhost:16686"
-	@echo "📡 OTLP HTTP endpoint: http://localhost:4318"
-	@echo "📡 OTLP gRPC endpoint: http://localhost:4317"
+	@echo "🌐 Uptrace UI: http://localhost:14319"
+	@echo "🔑 Login: uptrace@localhost / uptrace"
+	@echo "📡 OTLP HTTP endpoint: http://localhost:14318"
+	@echo "📡 OTLP gRPC endpoint: http://localhost:14317"
 
 # Stop and clean observability stack
 observability/destroy:
@@ -95,7 +99,7 @@ help:
 	@echo "  test/unit      - Run unit tests only (fast, no database)"
 	@echo "  test/integration - Run integration tests (requires database)"
 	@echo "  check          - Run all code quality checks (format, lint, test)"
-	@echo "  observability  - Start observability stack (Jaeger + OpenTelemetry) 🔍"
+	@echo "  observability  - Start observability stack (Uptrace + OpenTelemetry) 🔍"
 	@echo "  observability/destroy - Stop and clean observability stack"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"

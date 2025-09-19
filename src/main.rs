@@ -18,8 +18,6 @@ async fn main() {
         eprintln!("✅ Environment variables loaded from .env file");
     }
     
-    eprintln!("🔧 OTEL_EXPORTER_OTLP_ENDPOINT: {:?}", std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT"));
-    
     // Initialize enhanced tracing configuration
     if let Err(e) = tracing_config::init() {
         eprintln!("Failed to initialize tracing: {}", e);

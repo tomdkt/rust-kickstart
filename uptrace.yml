@@ -3,7 +3,14 @@
 ## See https://uptrace.dev/get/config.html for details.
 ##
 
-# ClickHouse database
+# PostgreSQL database (for metadata and configuration)
+pg:
+  addr: uptrace-postgres:5432
+  user: uptrace
+  password: uptrace
+  database: uptrace
+
+# ClickHouse database (for telemetry data storage)
 ch:
   addr: clickhouse:9000
   user: default
@@ -30,13 +37,16 @@ listen:
 site:
   # Overrides public URL for Vue-powered UI
   addr: 'http://localhost:14319'
+  # Enable CORS for development
+  cors:
+    allowed_origins: ['http://localhost:14319']
 
-# Authentication (disabled for development)
+# Authentication (enabled for development)
 auth:
   users:
-    - username: uptrace
+    - email: uptrace@localhost
       password: uptrace
-      email: uptrace@localhost
+      name: Uptrace Admin
 
 # Projects configuration
 projects:
