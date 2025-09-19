@@ -179,6 +179,8 @@ pub fn shutdown() {
     }
 }
 
+
+
 /// Create HTTP request tracing layer for web applications.
 /// 
 /// This layer provides enhanced request tracing with better logging

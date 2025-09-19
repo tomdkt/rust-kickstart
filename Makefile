@@ -73,7 +73,6 @@ observability:
 	@echo "📊 Starting Jaeger and OpenTelemetry services..."
 	@docker compose -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
-	@sleep 5
 	@echo "✅ Observability stack started successfully!"
 	@echo "🌐 Jaeger UI: http://localhost:16686"
 	@echo "📡 OTLP HTTP endpoint: http://localhost:4318"

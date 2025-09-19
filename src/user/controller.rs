@@ -26,6 +26,7 @@ use super::domain::{User, CreateUser, UpdateUser, ValidationErrorResponse, ApiRe
         (status = 500, description = "Internal server error")
     )
 )]
+#[tracing::instrument(skip(app_state, payload), fields(user_name = %payload.name, user_age = payload.age))]
 pub async fn create_user_handler(
     State(app_state): State<crate::AppState>,
     Json(payload): Json<CreateUser>,
@@ -61,6 +62,7 @@ pub async fn create_user_handler(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tracing::instrument(skip(app_state))]
 pub async fn get_all_users_handler(
     State(app_state): State<crate::AppState>,
 ) -> impl IntoResponse {
@@ -92,6 +94,7 @@ pub async fn get_all_users_handler(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tracing::instrument(skip(app_state), fields(user_id = id))]
 pub async fn get_user_by_id_handler(
     State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
@@ -130,6 +133,7 @@ pub async fn get_user_by_id_handler(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tracing::instrument(skip(app_state, payload), fields(user_id = id, update_name = payload.name.as_deref(), update_age = payload.age))]
 pub async fn update_user_handler(
     State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
@@ -170,6 +174,7 @@ pub async fn update_user_handler(
         (status = 500, description = "Internal server error")
     )
 )]
+#[tracing::instrument(skip(app_state), fields(user_id = id))]
 pub async fn delete_user_handler(
     State(app_state): State<crate::AppState>,
     Path(id): Path<i32>,
