@@ -1,4 +1,4 @@
-.PHONY: dev dev/optimized infra/raise infra/down db db/clean test test/unit test/integration check help
+.PHONY: dev dev/optimized infra/raise infra/down db db/clean test test/unit test/integration check observability observability/destroy help
 
 # Start app
 dev:
@@ -67,6 +67,24 @@ check:
 	@$(MAKE) test
 	@echo "✅ All checks passed!"
 
+# Start observability stack (Jaeger + OpenTelemetry)
+observability:
+	@echo "🔍 Starting observability stack..."
+	@echo "📊 Starting Jaeger and OpenTelemetry services..."
+	@docker compose -f docker-compose.observability.yaml up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 5
+	@echo "✅ Observability stack started successfully!"
+	@echo "🌐 Jaeger UI: http://localhost:16686"
+	@echo "📡 OTLP HTTP endpoint: http://localhost:4318"
+	@echo "📡 OTLP gRPC endpoint: http://localhost:4317"
+
+# Stop and clean observability stack
+observability/destroy:
+	@echo "🧹 Stopping observability stack..."
+	@docker compose -f docker-compose.observability.yaml down --volumes
+	@echo "✅ Observability stack stopped and cleaned!"
+
 # Show available commands
 help:
 	@echo "Available commands:"
@@ -78,6 +96,8 @@ help:
 	@echo "  test/unit      - Run unit tests only (fast, no database)"
 	@echo "  test/integration - Run integration tests (requires database)"
 	@echo "  check          - Run all code quality checks (format, lint, test)"
+	@echo "  observability  - Start observability stack (Jaeger + OpenTelemetry) 🔍"
+	@echo "  observability/destroy - Stop and clean observability stack"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"
 	@echo "  help           - Show this message"

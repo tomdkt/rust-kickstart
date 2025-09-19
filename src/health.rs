@@ -120,6 +120,7 @@ impl HealthService {
     }
 
     /// Performs a complete health check of all components
+    #[tracing::instrument(skip(self))]
     pub async fn check_health(&self) -> HealthCheckResponse {
         let start_time = Instant::now();
         info!("Starting comprehensive health check");
@@ -211,6 +212,7 @@ impl HealthService {
     ),
     tag = "health"
 )]
+#[tracing::instrument(skip(app_state))]
 pub async fn health_check_handler(
     State(app_state): State<crate::AppState>,
 ) -> Result<Json<HealthCheckResponse>, (StatusCode, Json<HealthCheckResponse>)> {

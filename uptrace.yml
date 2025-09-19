@@ -1,0 +1,103 @@
+##
+## Uptrace configuration file.
+## See https://uptrace.dev/get/config.html for details.
+##
+
+# ClickHouse database
+ch:
+  addr: clickhouse:9000
+  user: default
+  password: ""
+  database: uptrace
+
+# OpenTelemetry configuration
+otlp:
+  # OTLP/gRPC API
+  grpc:
+    addr: 0.0.0.0:14317
+
+  # OTLP/HTTP API
+  http:
+    addr: 0.0.0.0:14318
+
+# Uptrace HTTP API
+listen:
+  # Uptrace HTTP API
+  http:
+    addr: 0.0.0.0:14319
+
+# Site configuration
+site:
+  # Overrides public URL for Vue-powered UI
+  addr: 'http://localhost:14319'
+
+# Authentication (disabled for development)
+auth:
+  users:
+    - username: uptrace
+      password: uptrace
+      email: uptrace@localhost
+
+# Projects configuration
+projects:
+  # Conventionally, the first project is used to monitor Uptrace itself.
+  - id: 1
+    name: Uptrace
+    # Token grants write access to the project. Keep a secret.
+    token: project1_secret_token
+    pinned_attrs:
+      - service_name
+      - host_name
+      - deployment_environment
+    # Group spans by deployment.environment attribute.
+    group_by_env: false
+    # Group funcs spans by service.name attribute.
+    group_funcs_by_service: false
+
+  # Other projects can be used to monitor your applications.
+  # Each project is isolated from others.
+  - id: 2
+    name: My project
+    token: project2_secret_token
+    pinned_attrs:
+      - service_name
+      - host_name
+      - deployment_environment
+    group_by_env: false
+    group_funcs_by_service: false
+
+##
+## Various options to tweak ClickHouse schema.
+## For changes to take effect, you need to restart Uptrace and reload the browser page.
+##
+
+# Sampling configuration
+sampling:
+  # Traces sampling configuration.
+  traces:
+    # Discard a trace if it does not have any spans with an error.
+    drop_no_errors: false
+
+# Metrics configuration
+metrics:
+  # Delete metrics data after 30 days.
+  ttl: 30 * 24 * time.Hour
+
+##
+## AlertManager configuration.
+##
+
+# alertmanager:
+#   addr: http://localhost:9093
+#   basic_auth:
+#     username: ""
+#     password: ""
+
+##
+## Various options for Uptrace UI.
+##
+
+# User interface configuration
+ui:
+  # Max number of spans in a trace.
+  max_trace_spans: 10000

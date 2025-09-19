@@ -8,6 +8,18 @@ use rust_kickstart::config::tracing as tracing_config;
 
 #[tokio::main]
 async fn main() {
+    eprintln!("🚀 Starting Rust Kickstart application...");
+    
+    // Load environment variables from .env file first
+    if let Err(e) = dotenvy::dotenv() {
+        eprintln!("⚠️  Warning: Could not load .env file: {}", e);
+        eprintln!("💡 Make sure you have a .env file in the project root");
+    } else {
+        eprintln!("✅ Environment variables loaded from .env file");
+    }
+    
+    eprintln!("🔧 OTEL_EXPORTER_OTLP_ENDPOINT: {:?}", std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT"));
+    
     // Initialize enhanced tracing configuration
     if let Err(e) = tracing_config::init() {
         eprintln!("Failed to initialize tracing: {}", e);
@@ -50,7 +62,24 @@ async fn main() {
     }
 
     tracing::info!("Server listening on {}", local_addr);
+
+    // Setup graceful shutdown
+    let shutdown_signal = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install CTRL+C signal handler");
+        tracing::info!("Shutdown signal received, starting graceful shutdown...");
+        
+        // Shutdown OpenTelemetry to flush remaining telemetry data
+        tracing_config::shutdown();
+        tracing::info!("OpenTelemetry shutdown completed");
+    };
+
+    // Run server with graceful shutdown
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal)
         .await
         .expect("Server failed to start");
+
+    tracing::info!("Server shutdown completed");
 }
