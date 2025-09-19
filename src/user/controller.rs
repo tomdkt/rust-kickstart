@@ -5,13 +5,13 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, State, Query},
     http::StatusCode,
     response::IntoResponse,
 };
 use tracing::{error, warn};
 
-use super::domain::{User, CreateUser, UpdateUser, ValidationErrorResponse, ApiResponse, UserError};
+use super::domain::{User, CreateUser, UpdateUser, ValidationErrorResponse, ApiResponse, UserError, PaginationParams, PaginatedUsersResponse};
 
 
 /// HTTP handler for creating a new user
@@ -52,33 +52,40 @@ pub async fn create_user_handler(
     }
 }
 
-/// HTTP handler for retrieving all users
+/// HTTP handler for retrieving users with optional pagination
 #[utoipa::path(
     get,
     path = "/users",
     tag = "users",
+    params(
+        ("last_id" = Option<i32>, Query, description = "Last user ID from previous page for pagination (exclusive)"),
+        ("limit" = Option<i32>, Query, description = "Number of records to return (default: 200, max: 200)")
+    ),
     responses(
-        (status = 200, description = "List of all users", body = Vec<User>),
+        (status = 200, description = "Paginated list of users", body = PaginatedUsersResponse),
         (status = 500, description = "Internal server error")
     )
 )]
-#[tracing::instrument(skip(app_state))]
+#[tracing::instrument(skip(app_state), fields(last_id = params.last_id, limit = params.limit))]
 pub async fn get_all_users_handler(
     State(app_state): State<crate::AppState>,
+    Query(params): Query<PaginationParams>,
 ) -> impl IntoResponse {
     let user_service = app_state.user_service;
-    match user_service.get_all_users().await {
-        Ok(users) => (StatusCode::OK, Json(users)).into_response(),
+    match user_service.get_users_paginated(params).await {
+        Ok(response) => (StatusCode::OK, Json(response)).into_response(),
         Err(UserError::DatabaseError(msg)) => {
-            error!(error = %msg, "Controller: Database error in get all users");
+            error!(error = %msg, "Controller: Database error in get users");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
         Err(_) => {
-            // Other errors shouldn't happen in get_all, but handle them anyway
+            // Other errors shouldn't happen in get_users, but handle them anyway
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
 }
+
+
 
 /// HTTP handler for retrieving a specific user by ID
 #[utoipa::path(

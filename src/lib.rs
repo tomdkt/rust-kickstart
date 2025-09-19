@@ -57,6 +57,8 @@ pub struct AppState {
         user::domain::ApiResponse,
         user::domain::ValidationError,
         user::domain::ValidationErrorResponse,
+        user::domain::PaginationParams,
+        user::domain::PaginatedUsersResponse,
         health::ComponentHealth,
         health::HealthCheckResponse
     )),

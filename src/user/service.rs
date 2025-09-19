@@ -8,7 +8,7 @@
 
 use sqlx::PgPool;
 
-use super::domain::{User, CreateUser, UpdateUser, UserError, ApiResponse};
+use super::domain::{User, CreateUser, UpdateUser, UserError, ApiResponse, PaginationParams, PaginatedUsersResponse};
 use super::repository::UserRepository;
 use super::services::{
     CreateUserService, ReadUserService, UpdateUserService, 
@@ -37,6 +37,11 @@ impl UserService {
     /// Retrieves all users
     pub async fn get_all_users(&self) -> Result<Vec<User>, UserError> {
         ReadUserService::get_all_users(&self.repository).await
+    }
+
+    /// Retrieves users with pagination
+    pub async fn get_users_paginated(&self, params: PaginationParams) -> Result<PaginatedUsersResponse, UserError> {
+        ReadUserService::get_users_paginated(&self.repository, params).await
     }
 
     /// Retrieves a specific user by ID

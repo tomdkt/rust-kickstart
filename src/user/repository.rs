@@ -57,6 +57,42 @@ impl UserRepository {
         Ok(users)
     }
 
+    /// Retrieves users with pagination from the database
+    pub(super) async fn find_paginated(&self, last_id: Option<i32>, limit: i32) -> Result<Vec<User>, UserError> {
+        info!(last_id = last_id, limit = limit, "Fetching paginated users from database");
+
+        let limit_i64 = limit as i64;
+
+        let users = match last_id {
+            Some(id) => {
+                sqlx::query_as!(
+                    User,
+                    "SELECT id, name, age FROM users WHERE id > $1 ORDER BY id LIMIT $2",
+                    id,
+                    limit_i64
+                )
+                .fetch_all(&self.pool)
+                .await
+            }
+            None => {
+                sqlx::query_as!(
+                    User,
+                    "SELECT id, name, age FROM users ORDER BY id LIMIT $1",
+                    limit_i64
+                )
+                .fetch_all(&self.pool)
+                .await
+            }
+        }
+        .map_err(|e| {
+            error!(error = %e, last_id = last_id, limit = limit, "Failed to fetch paginated users from database");
+            UserError::DatabaseError(e.to_string())
+        })?;
+
+        info!(count = users.len(), last_id = last_id, limit = limit, "Paginated users fetched successfully from database");
+        Ok(users)
+    }
+
     /// Retrieves a specific user by ID from the database
     pub(super) async fn find_by_id(&self, id: i32) -> Result<Option<User>, UserError> {
         info!(user_id = id, "Fetching user by ID from database");

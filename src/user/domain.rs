@@ -55,6 +55,28 @@ pub struct ApiResponse {
     pub message: String,
 }
 
+/// Pagination parameters for user queries
+#[derive(Deserialize, ToSchema, Debug, Clone)]
+pub struct PaginationParams {
+    /// Last user ID from previous page for pagination (exclusive)
+    pub last_id: Option<i32>,
+    /// Number of records to return (default: 200, max: 200)
+    pub limit: Option<i32>,
+}
+
+/// Paginated response for users
+#[derive(Serialize, ToSchema, Debug, Clone)]
+pub struct PaginatedUsersResponse {
+    /// List of users for this page
+    pub users: Vec<User>,
+    /// ID of the last user in this page (for next page pagination)
+    pub last_id: Option<i32>,
+    /// Whether there are more users available
+    pub has_more: bool,
+    /// Total number of users returned in this page
+    pub count: usize,
+}
+
 /// Domain errors for user operations
 #[derive(Debug, thiserror::Error)]
 pub enum UserError {
