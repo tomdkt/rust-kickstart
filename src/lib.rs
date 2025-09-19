@@ -14,7 +14,6 @@ use axum::{
 };
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use tower_http::trace::TraceLayer;
 use tracing::info;
 use utoipa::OpenApi;
 
@@ -126,7 +125,7 @@ pub fn create_app_with_pool(pool: PgPool) -> Router {
         .route("/live", get(health::liveness_check_handler))
         .route("/api-docs/openapi.json", get(serve_openapi))
         .route("/swagger-ui", get(serve_swagger_ui))
-        .layer(TraceLayer::new_for_http())
+        .layer(config::tracing::create_http_trace_layer())
         .with_state(app_state)
 }
 

@@ -4,19 +4,15 @@
 //! Configures logging and starts the HTTP server.
 
 use rust_kickstart::{create_app, AppConfig};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use rust_kickstart::config::tracing as tracing_config;
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "rust_kickstart=debug,tower_http=debug,axum::rejection=trace".into()
-            }),
-        )
-        .with(tracing_subscriber::fmt::layer().with_thread_ids(true))
-        .init();
+    // Initialize enhanced tracing configuration
+    if let Err(e) = tracing_config::init() {
+        eprintln!("Failed to initialize tracing: {}", e);
+        std::process::exit(1);
+    }
 
     tracing::info!("Starting Rust Kickstart API server");
 
