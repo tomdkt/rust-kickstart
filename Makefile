@@ -1,9 +1,13 @@
-.PHONY: infra/raise infra/down infra/logs db db/migrate db/prepare test test/unit test/integration test/verbose check help
+.PHONY: dev dev/optimized infra/raise infra/down db db/clean test test/unit test/integration check help
 
 # Start app
 dev:
 	@$(MAKE) infra/raise
 	cargo watch -x run
+
+dev/optimized:
+	@$(MAKE) infra/raise
+	RUST_LOG=info cargo run --release
 
 # Start infrastructure with docker-compose
 infra/raise:
@@ -27,6 +31,10 @@ db:
 	@cargo sqlx prepare
 	@echo "✅ Database setup completed successfully!"
 
+db/clean:
+	@echo "🧹 Cleaning up database container and volumes..."
+	@docker compose --env-file ./.env down --volumes
+	@echo "✅ Database cleanup completed successfully!"
 
 # Run unit tests (fast, no database required)
 test/unit:
@@ -63,7 +71,9 @@ check:
 help:
 	@echo "Available commands:"
 	@echo "  dev            - Start development server with hot reload"
+	@echo "  dev/optimized  - Start server with release flag"
 	@echo "  db             - Complete database setup (idempotent) 🚀"
+	@echo "  db/clean       - Complete database cleanup"
 	@echo "  test           - Run all tests (unit + integration)"
 	@echo "  test/unit      - Run unit tests only (fast, no database)"
 	@echo "  test/integration - Run integration tests (requires database)"

@@ -15,14 +15,17 @@ async fn main() {
                 "rust_kickstart=debug,tower_http=debug,axum::rejection=trace".into()
             }),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_thread_ids(true))
         .init();
 
     tracing::info!("Starting Rust Kickstart API server");
 
     // Load configuration for server settings
     let config = AppConfig::load();
-    tracing::info!("Loaded configuration for environment: {}", config.environment);
+    tracing::info!(
+        "Loaded configuration for environment: {}",
+        config.environment
+    );
 
     let app = create_app().await;
 
@@ -42,7 +45,7 @@ async fn main() {
             "development" => format!("localhost:{}", local_addr.port()),
             _ => local_addr.to_string(),
         };
-        
+
         println!("\n🚀 Server running!");
         println!("📍 Local:    http://{display_addr}");
         println!("📖 Docs:     http://{display_addr}/swagger-ui");
