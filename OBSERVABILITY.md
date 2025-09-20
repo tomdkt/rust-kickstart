@@ -1,8 +1,138 @@
 # Observability Setup Guide
 
-This project includes a comprehensive observability setup with OpenTelemetry and Uptrace for distributed tracing, metrics, and logging.
+This project includes a comprehensive observability setup with OpenTelemetry and SigNoz for distributed tracing, metrics, and logging.
 
 ## Quick Start
+
+### 1. Start the Observability Stack
+
+```bash
+make observability
+```
+
+This command will:
+- Start SigNoz (all-in-one observability platform)
+- Start ClickHouse (high-performance database for telemetry data)
+- Start OpenTelemetry Collector (optional, for advanced routing)
+- Set up all necessary networking and volumes
+
+### 2. Access SigNoz UI
+
+Open your browser and navigate to: **http://localhost:3301**
+
+No authentication required for local development.
+
+### 3. Start Your Application
+
+```bash
+make run
+```
+
+Your application will automatically send traces, metrics, and logs to SigNoz.
+
+## Architecture Overview
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Application   │───▶│ OpenTelemetry    │───▶│     SigNoz      │
+│  (Rust + OTLP)  │    │   Collector      │    │  (Storage + UI) │
+│                 │    │   (Optional)     │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                                         │
+                                                         ▼
+                                               ┌─────────────────┐
+                                               │   ClickHouse    │
+                                               │   (Database)    │
+                                               └─────────────────┘
+```
+
+### Components
+
+- **Application**: Your Rust service sending telemetry via OTLP
+- **OpenTelemetry Collector**: Optional component for advanced data processing
+- **SigNoz**: All-in-one observability platform with web UI
+- **ClickHouse**: High-performance database for telemetry data (traces, metrics, logs)
+
+## Configuration Options
+
+The observability stack provides multiple endpoints for different use cases:
+
+#### Direct to SigNoz (Recommended for Development)
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4316
+```
+- Sends data directly to SigNoz
+- Simpler setup, fewer moving parts
+- Good for development and simple deployments
+
+#### Through OpenTelemetry Collector (Recommended for Production)
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4315
+```
+- Allows advanced data processing, filtering, and routing
+- Better for production environments
+- Supports multiple backends simultaneously
+
+## Environment Variables
+
+### Required Variables
+
+```bash
+# OpenTelemetry endpoint
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4316
+
+# Service identification
+OTEL_SERVICE_NAME=rust-kickstart
+OTEL_SERVICE_VERSION=0.1.0
+OTEL_RESOURCE_ATTRIBUTES=service.name=rust-kickstart,service.version=0.1.0,deployment.environment=development
+```
+
+### Optional Variables
+
+```bash
+# Protocol (default: http/protobuf)
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+# Timeout in milliseconds (default: 10000)
+OTEL_EXPORTER_OTLP_TIMEOUT=10000
+
+# Enable specific exporters
+OTEL_TRACES_EXPORTER=otlp
+OTEL_METRICS_EXPORTER=otlp
+OTEL_LOGS_EXPORTER=otlp
+```
+
+## Components Details
+
+### ClickHouse (Telemetry Storage)
+- **Purpose**: High-performance storage for traces, metrics, and logs
+- **Ports**: 8123 (HTTP), 9000 (Native)
+- **Database**: `signoz_traces`
+- **Data**: All telemetry data (high volume, optimized for analytics)
+
+## SigNoz Features
+
+### Traces View
+- **Distributed Tracing**: See complete request flows across services
+- **Service Map**: Visual representation of service dependencies
+- **Trace Search**: Find traces by service, operation, tags, or duration
+- **Span Details**: Detailed information about each operation
+
+### Metrics Dashboard
+- **Application Metrics**: Request rate, error rate, duration (RED metrics)
+- **Infrastructure Metrics**: CPU, memory, disk usage
+- **Custom Metrics**: Business-specific metrics from your application
+- **Alerts**: Set up alerts based on metric thresholds
+
+### Logs Management
+- **Structured Logs**: JSON logs with proper parsing
+- **Log Search**: Full-text search across all logs
+- **Log Correlation**: Link logs to traces for better debugging
+- **Log Aggregation**: Group similar log entries
+
+## Development Workflow
 
 ### 1. Start Observability Stack
 
@@ -10,459 +140,157 @@ This project includes a comprehensive observability setup with OpenTelemetry and
 make observability
 ```
 
-This command will:
-- Start Uptrace (all-in-one observability platform)
-- Start OpenTelemetry Collector (optional, for advanced routing)
-- Set up all necessary networking and volumes
-
-### 2. Access Uptrace UI
-
-Open your browser and navigate to: **http://localhost:14319**
-
-Default credentials:
-- Email: `uptrace@localhost`
-- Password: `uptrace`
-
-### 3. Start Your Application
+### 2. Run Your Application
 
 ```bash
-make dev
+make run
+# or
+cargo run
 ```
 
-Your application will automatically send traces, metrics, and logs to Uptrace.
-
-## Architecture Overview
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Application   │───▶│ OpenTelemetry    │───▶│     Uptrace     │
-│  (Rust + OTLP)  │    │   Collector      │    │  (Storage + UI) │
-│                 │    │   (Optional)     │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-        │                       │                       │
-        │                       │                       ▼
-        │                       │              ┌─────────────────┐
-        │                       │              │   PostgreSQL    │
-        │                       │              │   (Metadata)    │
-        │                       │              └─────────────────┘
-        │                       │                       │
-        │                       ▼                       ▼
-        │              ┌─────────────────┐    ┌─────────────────┐
-        └─────────────▶│   ClickHouse    │    │   ClickHouse    │
-                       │ (Telemetry Data)│    │ (Telemetry Data)│
-                       └─────────────────┘    └─────────────────┘
-```
-
-**Components:**
-- **Application**: Your Rust service sending telemetry via OTLP
-- **OpenTelemetry Collector**: Optional component for advanced data processing
-- **Uptrace**: All-in-one observability platform with web UI
-- **PostgreSQL**: Stores Uptrace metadata (users, projects, settings)
-- **ClickHouse**: High-performance database for telemetry data (traces, metrics, logs)
-
-## Configuration
-
-### Environment Variables
-
-The application uses these environment variables for observability:
+### 3. Generate Some Traffic
 
 ```bash
-# Required - OpenTelemetry endpoint
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
+# Health check
+curl http://localhost:8080/health
 
-# Service identification
-OTEL_SERVICE_NAME=rust-api
-OTEL_SERVICE_VERSION=1.0.0
-OTEL_RESOURCE_ATTRIBUTES=service.name=rust-api,service.version=1.0.0,deployment.environment=development
+# Create a user
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
 
-# Optional - Protocol and timeout settings
-OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-OTEL_EXPORTER_OTLP_TIMEOUT=10000
-OTEL_TRACES_EXPORTER=otlp
-OTEL_METRICS_EXPORTER=otlp
-OTEL_LOGS_EXPORTER=otlp
+# Get users
+curl http://localhost:8080/users
 ```
 
-### Connection Endpoints
+### 4. View Traces in SigNoz
 
-The observability stack provides multiple endpoints for different use cases:
+1. Open http://localhost:3301
+2. Navigate to "Traces" section
+3. You should see traces from your API calls
 
-#### Direct to Uptrace (Recommended for Development)
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
-```
-- Sends data directly to Uptrace
-- Simpler setup, fewer moving parts
-- Good for development and simple deployments
-
-#### Via OpenTelemetry Collector (Recommended for Production)
-```bash
-# Local development
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-
-# Containerized applications
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-```
-- Allows data processing, filtering, and routing
-- Better for production environments
-- Enables multiple backend destinations
-
-### Backend-Agnostic Design
-
-You can easily switch to other observability backends:
-
-#### Jaeger
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-# Configure collector to export to Jaeger
-```
-
-#### Grafana Cloud
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
-# Add authentication headers as needed
-```
-
-## Features
-
-### Distributed Tracing
-- **Automatic instrumentation** for HTTP requests
-- **Custom spans** for business logic
-- **Trace correlation** across service boundaries
-- **Performance monitoring** with latency metrics
-
-### Metrics Collection
-- **HTTP request metrics** (duration, status codes, throughput)
-- **Database query metrics** (connection pool, query duration)
-- **Custom business metrics**
-- **System metrics** (CPU, memory, disk)
-
-### Structured Logging
-- **Correlated logs** with trace and span IDs
-- **JSON format** in production for log aggregation
-- **Pretty format** in development for readability
-- **Contextual information** with structured fields
-
-### Graceful Shutdown
-- **Automatic flush** of telemetry data on shutdown
-- **Proper resource cleanup**
-- **Signal handling** for CTRL+C
-
-## Usage Examples
-
-### Adding Custom Spans
-
-```rust
-use tracing::{info, instrument, Span};
-
-#[instrument(
-    name = "user_creation",
-    fields(user_id, email = %request.email)
-)]
-async fn create_user(request: CreateUserRequest) -> Result<User, UserError> {
-    // Get current span to add dynamic attributes
-    let span = Span::current();
-    
-    info!("Starting user creation process");
-    
-    // Validate user data
-    validate_user_data(&request).await?;
-    
-    // Save to database
-    let user = save_user_to_db(&request).await?;
-    
-    // Add user ID to span after creation
-    span.record("user_id", &user.id.to_string());
-    
-    info!(user_id = %user.id, "User created successfully");
-    Ok(user)
-}
-```
-
-### Custom Metrics
-
-```rust
-use opentelemetry::{global, KeyValue};
-
-// Create a counter metric
-let meter = global::meter("rust-api");
-let user_creation_counter = meter
-    .u64_counter("user_creations_total")
-    .with_description("Total number of user creations")
-    .init();
-
-// Increment the counter
-user_creation_counter.add(1, &[
-    KeyValue::new("status", "success"),
-    KeyValue::new("method", "api"),
-]);
-```
-
-### Structured Logging with Context
-
-```rust
-use tracing::{info, error, warn};
-
-// Log with structured data
-info!(
-    user_id = %user.id,
-    email = %user.email,
-    action = "login",
-    ip_address = %client_ip,
-    "User login successful"
-);
-
-// Error logging with context
-error!(
-    error = %e,
-    user_id = %user.id,
-    operation = "database_save",
-    "Failed to save user to database"
-);
-```
-
-## Components Details
-
-### PostgreSQL (Uptrace Metadata)
-- **Purpose**: Stores Uptrace configuration, users, projects, and dashboards
-- **Port**: 5433 (to avoid conflict with main application database on 5432)
-- **Database**: `uptrace`
-- **Credentials**: `uptrace/uptrace`
-- **Data**: Non-telemetry data (lightweight)
-
-### ClickHouse (Telemetry Storage)
-- **Purpose**: High-performance storage for traces, metrics, and logs
-- **Ports**: 8123 (HTTP), 9000 (Native)
-- **Database**: `uptrace`
-- **Data**: All telemetry data (high volume, optimized for analytics)
-
-## Uptrace Features
-
-### Traces View
-- **Trace timeline** with span hierarchy and waterfall view
-- **Service map** showing dependencies and performance metrics
-- **Performance analysis** with bottleneck identification
-- **Error tracking** with detailed span information and stack traces
-
-### Metrics Dashboard
-- **Real-time metrics** with customizable dashboards
-- **Service performance** metrics (latency, throughput, error rate)
-- **Infrastructure metrics** (CPU, memory, disk usage)
-- **Custom business metrics** with alerting capabilities
-
-### Search and Filter
-- **Advanced search** with SQL-like queries
-- **Service-based filtering** to focus on specific services
-- **Attribute-based queries** for complex filtering
-- **Time range selection** with zoom and pan capabilities
-
-### Alerting and Monitoring
-- **Smart alerts** based on anomaly detection
-- **Custom alert rules** for business metrics
-- **Integration** with popular notification channels
-- **SLA monitoring** with uptime tracking
-
-## Advanced Configuration
-
-### OpenTelemetry Collector
-
-For advanced use cases, you can use the OpenTelemetry Collector for:
-- **Data processing** (filtering, sampling, enrichment)
-- **Multiple backends** (send data to multiple destinations)
-- **Protocol translation** (convert between different formats)
-- **Load balancing** across multiple backend instances
-
-The collector is included by default in the observability stack:
-```bash
-make observability
-```
-
-Configure your application to send data to the collector:
-```bash
-# For local development
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-
-# For containerized applications (using Docker networks)
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-```
-
-### Sampling Configuration
-
-Control trace sampling to manage data volume:
-
-```rust
-// In src/config/tracing.rs
-use opentelemetry_sdk::trace::Sampler;
-
-// Sample 10% of traces
-.with_sampler(Sampler::TraceIdRatioBased(0.1))
-
-// Always sample errors and slow requests
-.with_sampler(Sampler::ParentBased(Box::new(
-    Sampler::TraceIdRatioBased(0.1)
-)))
-```
-
-### Resource Attributes
-
-Add custom resource attributes for better service identification:
-
-```bash
-OTEL_RESOURCE_ATTRIBUTES="service.name=rust-api,service.version=1.0.0,deployment.environment=production,k8s.cluster.name=prod-cluster,k8s.namespace.name=default"
-```
-
-## Production Deployment
+## Production Considerations
 
 ### Security Considerations
-- **Authentication** for Uptrace UI in production (configure in uptrace.yml)
+- **Authentication** for SigNoz UI in production
 - **TLS encryption** for OTLP endpoints
 - **Network policies** to restrict access
-- **Data retention** policies for compliance (configurable in ClickHouse)
+- **Data retention** policies for telemetry data
 
-### Performance Optimization
-- **Sampling strategies** to control data volume
-- **Batch processing** for efficient data export
-- **Resource limits** for collector containers
-- **Monitoring** of the observability stack itself
+### Performance Tuning
+- **Sampling**: Configure trace sampling to reduce overhead
+- **Batch Processing**: Use batch processors in OpenTelemetry Collector
+- **Resource Limits**: Set appropriate memory and CPU limits
+- **Storage**: Monitor ClickHouse disk usage and set retention policies
 
-### High Availability
-- **Multiple collector instances** for redundancy
-- **Load balancing** across collectors
-- **ClickHouse clustering** for persistent storage
-- **Backup strategies** for ClickHouse data
+### Scaling
+- **Horizontal Scaling**: Run multiple collector instances
+- **Load Balancing**: Distribute telemetry data across collectors
+- **Sharding**: Use ClickHouse sharding for large deployments
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### No traces appearing in Uptrace
+#### No traces appearing in SigNoz
+
 1. Check if observability stack is running: `docker ps`
-2. Verify OTLP endpoint: `curl http://localhost:14318/v1/traces`
-3. Check Uptrace logs: `docker logs uptrace`
-4. Check PostgreSQL connectivity: `docker logs uptrace-postgres`
-5. Check ClickHouse connectivity: `docker logs clickhouse`
-6. Verify environment variables are set correctly
+2. Verify OTLP endpoint: `curl http://localhost:4316/v1/traces`
+3. Check SigNoz logs: `docker logs signoz-query-service`
+4. Check ClickHouse connectivity: `docker logs signoz-clickhouse`
+5. Verify environment variables are set correctly
 
 #### High memory usage
-1. Adjust sampling rate to reduce data volume
-2. Configure batch processing limits
-3. Set memory limits for collector containers
-4. Monitor resource usage with `docker stats`
 
-#### Slow application performance
-1. Reduce trace sampling rate
-2. Optimize span creation (avoid too many spans)
-3. Use asynchronous export mode
-4. Monitor collector performance
+1. Check ClickHouse memory usage: `docker stats signoz-clickhouse`
+2. Configure data retention policies
+3. Adjust batch processor settings in collector
+4. Enable trace sampling
 
-### Debug Commands
+### Debugging Commands
 
 ```bash
-# Check observability stack status
+# Check all services status
 docker compose -f docker-compose.observability.yaml ps
 
-# View Uptrace logs
-docker logs uptrace
-
-# View PostgreSQL logs (Uptrace metadata)
-docker logs uptrace-postgres
+# View SigNoz query service logs
+docker logs signoz-query-service
 
 # View ClickHouse logs (telemetry data)
-docker logs clickhouse
+docker logs signoz-clickhouse
 
-# View collector logs (if using collector profile)
+# View OpenTelemetry Collector logs
 docker logs otel-collector
 
 # Test OTLP endpoint
-curl -X POST http://localhost:14318/v1/traces \
+curl -X POST http://localhost:4316/v1/traces \
   -H "Content-Type: application/x-protobuf" \
   --data-binary @/dev/null
 
-# Check Uptrace UI health
-curl http://localhost:14319/api/v1/health
-
-# Check application telemetry
-RUST_LOG=opentelemetry=debug,tracing_opentelemetry=debug cargo run
+# Check SigNoz API health
+curl http://localhost:8080/api/v1/health
 ```
 
-## Cleanup
+### Data Verification
 
-### Stop observability stack
 ```bash
-make observability/destroy
+# Check ClickHouse tables
+docker exec -it signoz-clickhouse clickhouse-client --query "SHOW TABLES"
+
+# Check trace data
+docker exec -it signoz-clickhouse clickhouse-client --query "SELECT count() FROM signoz_traces.signoz_spans"
 ```
-
-This will:
-- Stop all observability containers
-- Remove volumes and networks
-- Clean up all observability data
-
-### Temporary disable
-To temporarily disable OpenTelemetry without stopping the stack:
-```bash
-unset OTEL_EXPORTER_OTLP_ENDPOINT
-```
-
-### Access Uptrace Projects
-
-Uptrace supports multiple projects for organizing different applications:
-
-- **Project 1 (Uptrace)**: Used for monitoring Uptrace itself
-  - Token: `project1_secret_token`
-  - URL: `http://localhost:14319/1`
-
-- **Project 2 (My project)**: For your application
-  - Token: `project2_secret_token` 
-  - URL: `http://localhost:14319/2`
-
-You can configure additional projects in `uptrace.yml` as needed.
 
 ## Integration with CI/CD
 
-### GitHub Actions Example
-
-```yaml
-name: Test with Observability
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Start observability stack
-        run: make observability
-      - name: Run tests with tracing
-        run: |
-          export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
-          make test
-      - name: Cleanup
-        run: make observability/destroy
-```
-
 ### Docker Compose Integration
 
-For development environments, you can combine the main application with observability:
+The observability stack is designed to work seamlessly with your application:
 
-```bash
-# Start observability stack first
-make observability
-
-# Then start your application (if containerized)
-docker compose --profile app up -d
-
-# Or start everything together
-docker compose -f docker-compose.yml -f docker-compose.observability.yaml up -d
+```yaml
+# In your docker-compose.yml
+services:
+  your-app:
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4316
+    networks:
+      - app-network
+      - signoz-network
 ```
 
 **Network Configuration:**
-- Observability stack runs on `uptrace-network`
-- Main application connects to both `app-network` and `uptrace-network`
-- This allows the application to communicate with both its database and the observability stack
+- Observability stack runs on `signoz-network`
+- Main application connects to both `app-network` and `signoz-network`
 
-## Further Reading
+### Environment-Specific Configuration
 
-- [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
-- [Uptrace Documentation](https://uptrace.dev/get/)
-- [Tracing in Rust](https://tracing.rs/tracing/)
-- [OpenTelemetry Rust SDK](https://github.com/open-telemetry/opentelemetry-rust)
+```bash
+# Development
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4316
+
+# Docker Compose
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4316
+
+# Production (with load balancer)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.your-domain.com
+```
+
+## Migration from Uptrace
+
+If you're migrating from Uptrace, use the provided migration script:
+
+```bash
+./migrate-to-signoz.sh
+```
+
+This script will:
+1. Stop existing Uptrace services
+2. Start SigNoz services
+3. Update network configurations
+4. Provide new access URLs
+
+## Additional Resources
+
+- [SigNoz Documentation](https://signoz.io/docs/)
+- [OpenTelemetry Rust SDK](https://docs.rs/opentelemetry/)
+- [ClickHouse Documentation](https://clickhouse.com/docs/)

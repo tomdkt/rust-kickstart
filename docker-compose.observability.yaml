@@ -1,33 +1,11 @@
 services:
-  # PostgreSQL - Metadata database for Uptrace (separate from main app)
-  uptrace-postgres:
-    image: postgres:16-alpine
-    container_name: uptrace-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: uptrace
-      POSTGRES_PASSWORD: uptrace
-      POSTGRES_DB: uptrace
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U uptrace -d uptrace" ]
-      interval: 1s
-      timeout: 1s
-      retries: 10
-      start_period: 2s
-    volumes:
-      - uptrace_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"  # Different port to avoid conflict with main app postgres
-    networks:
-      - uptrace-network
-
-  # ClickHouse - Telemetry data storage for Uptrace
+  # ClickHouse - Telemetry data storage for SigNoz
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
-    container_name: clickhouse
+    container_name: signoz-clickhouse
     restart: unless-stopped
     environment:
-      CLICKHOUSE_DB: uptrace
+      CLICKHOUSE_DB: signoz_traces
     healthcheck:
       test: [ 'CMD', 'wget', '--spider', '-q', 'localhost:8123/ping' ]
       interval: 1s
@@ -35,39 +13,70 @@ services:
       retries: 10
       start_period: 2s
     volumes:
-      - uptrace_clickhouse_data:/var/lib/clickhouse
+      - signoz_clickhouse_data:/var/lib/clickhouse
     ports:
       - "8123:8123"   # HTTP interface
       - "9000:9000"   # Native interface
     networks:
-      - uptrace-network
+      - signoz-network
 
-  # Uptrace - All-in-one observability platform
-  uptrace:
-    image: uptrace/uptrace:1.7.0
-    container_name: uptrace
+  # SigNoz Query Service
+  query-service:
+    image: signoz/query-service:0.39.0
+    container_name: signoz-query-service
     restart: unless-stopped
-    volumes:
-      - ./uptrace.yml:/etc/uptrace/uptrace.yml:ro
-    ports:
-      - "14317:14317"  # OTLP gRPC receiver
-      - "14318:14318"  # OTLP HTTP receiver  
-      - "14319:14319"  # Uptrace UI
     environment:
-      - UPTRACE_CONFIG_PATH=/etc/uptrace/uptrace.yml
-    networks:
-      - uptrace-network
+      - ClickHouseUrl=tcp://clickhouse:9000
+      - STORAGE=clickhouse
+      - GODEBUG=netdns=go
+      - TELEMETRY_ENABLED=true
+      - DEPLOYMENT_TYPE=docker-standalone-amd
+    ports:
+      - "8080:8080"   # Query service API
     depends_on:
-      uptrace-postgres:
-        condition: service_healthy
       clickhouse:
         condition: service_healthy
+    networks:
+      - signoz-network
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:14319/" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/v1/health" ]
       interval: 1s
       timeout: 1s
       retries: 10
       start_period: 2s
+
+  # SigNoz Frontend
+  frontend:
+    image: signoz/frontend:0.39.0
+    container_name: signoz-frontend
+    restart: unless-stopped
+    environment:
+      - FRONTEND_API_ENDPOINT=http://query-service:8080
+    ports:
+      - "3301:3301"   # SigNoz UI
+    depends_on:
+      query-service:
+        condition: service_healthy
+    networks:
+      - signoz-network
+
+  # SigNoz OTel Collector
+  otel-collector-signoz:
+    image: signoz/signoz-otel-collector:0.88.11
+    container_name: signoz-otel-collector
+    restart: unless-stopped
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+      - DOCKER_MULTI_NODE_CLUSTER=false
+      - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - signoz-network
 
   # OpenTelemetry Collector - for advanced routing
   otel-collector:
@@ -78,21 +87,20 @@ services:
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol-contrib/otel-collector.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      - "4315:4317"   # OTLP gRPC receiver (different port to avoid conflict)
+      - "4316:4318"   # OTLP HTTP receiver (different port to avoid conflict)
       - "8888:8888"   # Prometheus metrics
       - "8889:8889"   # Prometheus exporter metrics
     depends_on:
-      uptrace:
-        condition: service_healthy
+      otel-collector-signoz:
+        condition: service_started
     networks:
-      - uptrace-network
+      - signoz-network
 
 volumes:
-  uptrace_postgres_data:
-  uptrace_clickhouse_data:
+  signoz_clickhouse_data:
 
 networks:
-  uptrace-network:
-    name: uptrace-network
+  signoz-network:
+    name: signoz-network
     driver: bridge

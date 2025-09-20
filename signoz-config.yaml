@@ -1,0 +1,26 @@
+# SigNoz Configuration
+# This file contains basic configuration for SigNoz deployment
+
+# Database Configuration
+clickhouse:
+  host: clickhouse
+  port: 9000
+  database: signoz_traces
+  username: default
+  password: ""
+
+# Query Service Configuration
+query_service:
+  host: 0.0.0.0
+  port: 8080
+  
+# Frontend Configuration
+frontend:
+  host: 0.0.0.0
+  port: 3301
+  api_endpoint: http://query-service:8080
+
+# OpenTelemetry Configuration
+otel:
+  grpc_port: 4317
+  http_port: 4318

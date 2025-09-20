@@ -70,24 +70,23 @@ check:
 	@$(MAKE) test
 	@echo "✅ All checks passed!"
 
-# Start observability stack (Uptrace + OpenTelemetry)
+# Start observability stack (SigNoz + OpenTelemetry)
 observability:
 	@echo "🚀 Starting Observability Stack..."
-	@echo "📊 Starting all services (Uptrace, ClickHouse, PostgreSQL, OpenTelemetry Collector)..."
+	@echo "📊 Starting all services (SigNoz, ClickHouse, OpenTelemetry Collector)..."
 	@docker compose -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
 	@echo "✅ Observability stack is ready!"
 	@echo ""
 	@echo "🌐 Access points:"
-	@echo "   - Uptrace UI: http://localhost:14319"
-	@echo "   - Login: uptrace@localhost / uptrace"
+	@echo "   - SigNoz UI: http://localhost:3301"
 	@echo "   - ClickHouse: http://localhost:8123"
-	@echo "   - OTLP gRPC: localhost:4317"
-	@echo "   - OTLP HTTP: localhost:4318"
+	@echo "   - OTLP gRPC: localhost:4315"
+	@echo "   - OTLP HTTP: localhost:4316"
 	@echo ""
 	@echo "📝 To send data from your app:"
-	@echo "   - Set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318"
-	@echo "   - Or use the collector: http://otel-collector:4318 (in Docker)"
+	@echo "   - Set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4316"
+	@echo "   - Or use the collector: http://otel-collector:4316 (in Docker)"
 
 # Stop and clean observability stack
 observability/destroy:
@@ -106,7 +105,7 @@ help:
 	@echo "  test/unit      - Run unit tests only (fast, no database)"
 	@echo "  test/integration - Run integration tests (requires database)"
 	@echo "  check          - Run all code quality checks (format, lint, test)"
-	@echo "  observability  - Start observability stack (Uptrace + OpenTelemetry) 🔍"
+	@echo "  observability  - Start observability stack (SigNoz + OpenTelemetry) 🔍
 	@echo "  observability/destroy - Stop and clean observability stack"
 	@echo "  infra/raise    - Start containers in background"
 	@echo "  infra/down     - Stop and remove containers"

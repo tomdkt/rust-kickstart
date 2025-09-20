@@ -16,13 +16,11 @@ processors:
     check_interval: 1s
 
 exporters:
-  # Uptrace exporter
-  otlp/uptrace:
-    endpoint: "uptrace:14317"  # gRPC endpoint (no http://)
+  # SigNoz exporter
+  otlp/signoz:
+    endpoint: "otel-collector-signoz:4317"  # gRPC endpoint to SigNoz OTel collector
     tls:
       insecure: true
-    headers:
-      uptrace-dsn: "http://project2_secret_token@uptrace:14317/2"  # Use project 2
 
   # Debug exporter for development
   debug:
@@ -37,16 +35,16 @@ service:
     traces:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/uptrace, debug ]
+      exporters: [ otlp/signoz, debug ]
     
     metrics:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/uptrace, prometheus ]
+      exporters: [ otlp/signoz, prometheus ]
     
     logs:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/uptrace, debug ]
+      exporters: [ otlp/signoz, debug ]
 
   extensions: [ ]
