@@ -74,7 +74,7 @@ check:
 observability:
 	@echo "🚀 Starting Observability Stack..."
 	@echo "📊 Starting all services (SigNoz, ClickHouse, OpenTelemetry Collector)..."
-	@docker compose -f docker-compose.observability.yaml up -d
+	@docker compose --env-file ./.env -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
 	@echo "✅ Observability stack is ready!"
 	@echo ""
@@ -91,7 +91,7 @@ observability:
 # Stop and clean observability stack
 observability/destroy:
 	@echo "🧹 Stopping observability stack..."
-	@docker compose -f docker-compose.observability.yaml down --volumes
+	@docker compose --env-file ./.env -f docker-compose.observability.yaml down --volumes
 	@echo "✅ Observability stack stopped and cleaned!"
 
 # Show available commands

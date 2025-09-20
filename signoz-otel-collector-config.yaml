@@ -1,0 +1,82 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 256
+    check_interval: 1s
+
+exporters:
+  # Para traces - usando o exporter oficial do ClickHouse
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    database: signoz_traces
+    username: default
+    password: ""
+    table_name: signoz_spans
+    ttl: 2160h  # 90 days
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    create_schema: true
+    
+  # Para métricas - usando configuração específica do SigNoz
+  clickhousemetricswrite:
+    endpoint: tcp://clickhouse:9000
+    database: signoz_metrics
+    username: default
+    password: ""
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Para logs - configuração alternativa
+  clickhouselogsexporter:
+    endpoint: tcp://clickhouse:9000
+    database: signoz_logs
+    username: default
+    password: ""
+    table_name: logs
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+      
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhousemetricswrite]
+      
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouselogsexporter]

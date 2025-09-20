@@ -2,49 +2,61 @@ receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317
+        endpoint: "0.0.0.0:4317"
       http:
-        endpoint: 0.0.0.0:4318
+        endpoint: "0.0.0.0:4318"
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
 
 processors:
   batch:
-    timeout: 1s
-    send_batch_size: 1024
   memory_limiter:
-    limit_mib: 512
-    spike_limit_mib: 256
     check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 15
 
 exporters:
-  # SigNoz exporter
-  otlp/signoz:
-    endpoint: "otel-collector-signoz:4317"  # gRPC endpoint to SigNoz OTel collector
-    tls:
-      insecure: true
+  clickhousetraces:
+    endpoint: "clickhouse:9000"
+    database: "signoz_traces"
+    # Adicione outras configurações como username/password se necessário
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
 
-  # Debug exporter for development
-  debug:
-    verbosity: detailed
+  clickhousemetricswrite:
+    endpoint: "clickhouse:9000"
+    database: "signoz_metrics"
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
 
-  # Prometheus metrics exporter
-  prometheus:
-    endpoint: "0.0.0.0:8889"
+  clickhouselogsexporter:
+    endpoint: "clickhouse:9000"
+    database: "signoz_logs"
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
 
 service:
   pipelines:
     traces:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/signoz, debug ]
-    
+      exporters: [ clickhousetraces ]
     metrics:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/signoz, prometheus ]
-    
+      exporters: [ clickhousemetricswrite ]
     logs:
       receivers: [ otlp ]
       processors: [ memory_limiter, batch ]
-      exporters: [ otlp/signoz, debug ]
-
-  extensions: [ ]
+      exporters: [ clickhouselogsexporter ]

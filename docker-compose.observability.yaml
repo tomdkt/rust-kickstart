@@ -1,17 +1,17 @@
 services:
   # ClickHouse - Telemetry data storage for SigNoz
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:${CLICKHOUSE_VERSION}
     container_name: signoz-clickhouse
     restart: unless-stopped
     environment:
       CLICKHOUSE_DB: signoz_traces
     healthcheck:
       test: [ 'CMD', 'wget', '--spider', '-q', 'localhost:8123/ping' ]
-      interval: 1s
-      timeout: 1s
-      retries: 10
-      start_period: 2s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
       - signoz_clickhouse_data:/var/lib/clickhouse
     ports:
@@ -22,7 +22,7 @@ services:
 
   # SigNoz Query Service
   query-service:
-    image: signoz/query-service:0.39.0
+    image: signoz/query-service:${SIGNOZ_VERSION}
     container_name: signoz-query-service
     restart: unless-stopped
     environment:
@@ -49,7 +49,7 @@ services:
 
   # SigNoz Frontend
   frontend:
-    image: signoz/frontend:0.39.0
+    image: signoz/frontend:${SIGNOZ_VERSION}
     container_name: signoz-frontend
     restart: unless-stopped
     environment:
@@ -64,9 +64,12 @@ services:
 
   # SigNoz OTel Collector
   otel-collector-signoz:
-    image: signoz/signoz-otel-collector:0.88.11
+    image: signoz/signoz-otel-collector:${COLLECTOR_VERSION}
     container_name: signoz-otel-collector
     restart: unless-stopped
+    command: [ "--config=/etc/otelcol-contrib/otel-collector-config.yaml" ]
+    volumes:
+      - ./signoz-otel-collector-config.yaml:/etc/otelcol-contrib/otel-collector-config.yaml:ro
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
       - DOCKER_MULTI_NODE_CLUSTER=false
@@ -79,10 +82,16 @@ services:
         condition: service_healthy
     networks:
       - signoz-network
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # OpenTelemetry Collector - for advanced routing
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.91.0
+    image: otel/opentelemetry-collector-contrib:${COLLECTOR_VERSION}
     container_name: otel-collector
     restart: unless-stopped
     command: [ "--config=/etc/otelcol-contrib/otel-collector.yaml" ]
@@ -95,7 +104,7 @@ services:
       - "8889:8889"   # Prometheus exporter metrics
     depends_on:
       otel-collector-signoz:
-        condition: service_started
+        condition: service_healthy
     networks:
       - signoz-network
 
