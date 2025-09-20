@@ -11,6 +11,34 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - app-network
+
+  # Your Rust application (add this when you containerize it)
+  rust-api:
+    build: .
+    container_name: rust-api
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=rust-api
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=rust-api,service.version=1.0.0
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+      - uptrace-network  # Connect to observability network
+    profiles:
+      - app
 
 volumes:
   postgres_data:
+
+networks:
+  app-network:
+    name: app-network
+    driver: bridge
+  uptrace-network:
+    name: uptrace-network
+    external: true  # Reference the external network from observability stack

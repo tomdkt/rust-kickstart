@@ -18,11 +18,11 @@ processors:
 exporters:
   # Uptrace exporter
   otlp/uptrace:
-    endpoint: "http://uptrace:14317"
+    endpoint: "uptrace:14317"  # gRPC endpoint (no http://)
     tls:
       insecure: true
     headers:
-      uptrace-dsn: "http://project1_secret_token@uptrace:14317/1"
+      uptrace-dsn: "http://project2_secret_token@uptrace:14317/2"  # Use project 2
 
   # Debug exporter for development
   debug:
