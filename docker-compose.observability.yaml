@@ -9,10 +9,11 @@ services:
       POSTGRES_PASSWORD: uptrace
       POSTGRES_DB: uptrace
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uptrace -d uptrace"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test: [ "CMD-SHELL", "pg_isready -U uptrace -d uptrace" ]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+      start_period: 2s
     volumes:
       - uptrace_postgres_data:/var/lib/postgresql/data
     ports:
@@ -28,10 +29,11 @@ services:
     environment:
       CLICKHOUSE_DB: uptrace
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'localhost:8123/ping']
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      test: [ 'CMD', 'wget', '--spider', '-q', 'localhost:8123/ping' ]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+      start_period: 2s
     volumes:
       - uptrace_clickhouse_data:/var/lib/clickhouse
     ports:
@@ -61,17 +63,18 @@ services:
       clickhouse:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:14319/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:14319/" ]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+      start_period: 2s
 
   # OpenTelemetry Collector - for advanced routing
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.91.0
     container_name: otel-collector
     restart: unless-stopped
-    command: ["--config=/etc/otelcol-contrib/otel-collector.yaml"]
+    command: [ "--config=/etc/otelcol-contrib/otel-collector.yaml" ]
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol-contrib/otel-collector.yaml:ro
     ports:

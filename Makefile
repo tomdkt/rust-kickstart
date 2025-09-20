@@ -76,7 +76,6 @@ observability:
 	@echo "📊 Starting all services (Uptrace, ClickHouse, PostgreSQL, OpenTelemetry Collector)..."
 	@docker compose -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
-	@sleep 10
 	@echo "✅ Observability stack is ready!"
 	@echo ""
 	@echo "🌐 Access points:"
