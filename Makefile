@@ -72,15 +72,23 @@ check:
 
 # Start observability stack (Uptrace + OpenTelemetry)
 observability:
-	@echo "🔍 Starting observability stack..."
-	@echo "📊 Starting Uptrace and OpenTelemetry services..."
+	@echo "🚀 Starting Observability Stack..."
+	@echo "📊 Starting all services (Uptrace, ClickHouse, PostgreSQL, OpenTelemetry Collector)..."
 	@docker compose -f docker-compose.observability.yaml up -d
 	@echo "⏳ Waiting for services to be ready..."
-	@echo "✅ Observability stack started successfully!"
-	@echo "🌐 Uptrace UI: http://localhost:14319"
-	@echo "🔑 Login: uptrace@localhost / uptrace"
-	@echo "📡 OTLP HTTP endpoint: http://localhost:14318"
-	@echo "📡 OTLP gRPC endpoint: http://localhost:14317"
+	@sleep 10
+	@echo "✅ Observability stack is ready!"
+	@echo ""
+	@echo "🌐 Access points:"
+	@echo "   - Uptrace UI: http://localhost:14319"
+	@echo "   - Login: uptrace@localhost / uptrace"
+	@echo "   - ClickHouse: http://localhost:8123"
+	@echo "   - OTLP gRPC: localhost:4317"
+	@echo "   - OTLP HTTP: localhost:4318"
+	@echo ""
+	@echo "📝 To send data from your app:"
+	@echo "   - Set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318"
+	@echo "   - Or use the collector: http://otel-collector:4318 (in Docker)"
 
 # Stop and clean observability stack
 observability/destroy:
