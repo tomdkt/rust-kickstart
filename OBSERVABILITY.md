@@ -37,14 +37,28 @@ Your application will automatically send traces, metrics, and logs to Uptrace.
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Application   │───▶│ OpenTelemetry    │───▶│     Uptrace     │
 │  (Rust + OTLP)  │    │   Collector      │    │  (Storage + UI) │
+│                 │    │   (Optional)     │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │                         │
-                              ▼                         ▼
-                       ┌─────────────────┐    ┌─────────────────┐
-                       │   ClickHouse    │    │   ClickHouse    │
-                       │   (Database)    │    │   (Database)    │
+        │                       │                       │
+        │                       │                       ▼
+        │                       │              ┌─────────────────┐
+        │                       │              │   PostgreSQL    │
+        │                       │              │   (Metadata)    │
+        │                       │              └─────────────────┘
+        │                       │                       │
+        │                       ▼                       ▼
+        │              ┌─────────────────┐    ┌─────────────────┐
+        └─────────────▶│   ClickHouse    │    │   ClickHouse    │
+                       │ (Telemetry Data)│    │ (Telemetry Data)│
                        └─────────────────┘    └─────────────────┘
 ```
+
+**Components:**
+- **Application**: Your Rust service sending telemetry via OTLP
+- **OpenTelemetry Collector**: Optional component for advanced data processing
+- **Uptrace**: All-in-one observability platform with web UI
+- **PostgreSQL**: Stores Uptrace metadata (users, projects, settings)
+- **ClickHouse**: High-performance database for telemetry data (traces, metrics, logs)
 
 ## Configuration
 
@@ -57,9 +71,9 @@ The application uses these environment variables for observability:
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
 
 # Service identification
-OTEL_SERVICE_NAME=rust-kickstart
-OTEL_SERVICE_VERSION=0.1.0
-OTEL_RESOURCE_ATTRIBUTES=service.name=rust-kickstart,service.version=0.1.0,deployment.environment=development
+OTEL_SERVICE_NAME=rust-api
+OTEL_SERVICE_VERSION=1.0.0
+OTEL_RESOURCE_ATTRIBUTES=service.name=rust-api,service.version=1.0.0,deployment.environment=development
 
 # Optional - Protocol and timeout settings
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
@@ -69,31 +83,44 @@ OTEL_METRICS_EXPORTER=otlp
 OTEL_LOGS_EXPORTER=otlp
 ```
 
-### Backend-Agnostic Design
+### Connection Endpoints
 
-The observability setup is designed to be backend-agnostic. You can easily switch between different observability backends:
+The observability stack provides multiple endpoints for different use cases:
 
-#### Uptrace (Default)
+#### Direct to Uptrace (Recommended for Development)
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318
 ```
+- Sends data directly to Uptrace
+- Simpler setup, fewer moving parts
+- Good for development and simple deployments
+
+#### Via OpenTelemetry Collector (Recommended for Production)
+```bash
+# Local development
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+
+# Containerized applications
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+```
+- Allows data processing, filtering, and routing
+- Better for production environments
+- Enables multiple backend destinations
+
+### Backend-Agnostic Design
+
+You can easily switch to other observability backends:
 
 #### Jaeger
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# Configure collector to export to Jaeger
 ```
 
 #### Grafana Cloud
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
 # Add authentication headers as needed
-```
-
-
-
-#### Custom OpenTelemetry Collector
-```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ```
 
 ## Features
@@ -158,7 +185,7 @@ async fn create_user(request: CreateUserRequest) -> Result<User, UserError> {
 use opentelemetry::{global, KeyValue};
 
 // Create a counter metric
-let meter = global::meter("rust-kickstart");
+let meter = global::meter("rust-api");
 let user_creation_counter = meter
     .u64_counter("user_creations_total")
     .with_description("Total number of user creations")
@@ -193,6 +220,21 @@ error!(
     "Failed to save user to database"
 );
 ```
+
+## Components Details
+
+### PostgreSQL (Uptrace Metadata)
+- **Purpose**: Stores Uptrace configuration, users, projects, and dashboards
+- **Port**: 5433 (to avoid conflict with main application database on 5432)
+- **Database**: `uptrace`
+- **Credentials**: `uptrace/uptrace`
+- **Data**: Non-telemetry data (lightweight)
+
+### ClickHouse (Telemetry Storage)
+- **Purpose**: High-performance storage for traces, metrics, and logs
+- **Ports**: 8123 (HTTP), 9000 (Native)
+- **Database**: `uptrace`
+- **Data**: All telemetry data (high volume, optimized for analytics)
 
 ## Uptrace Features
 
@@ -230,14 +272,18 @@ For advanced use cases, you can use the OpenTelemetry Collector for:
 - **Protocol translation** (convert between different formats)
 - **Load balancing** across multiple backend instances
 
-Start with collector:
+The collector is included by default in the observability stack:
 ```bash
-docker compose -f docker-compose.observability.yaml --profile collector up -d
+make observability
 ```
 
-Then configure your application to send data to the collector:
+Configure your application to send data to the collector:
 ```bash
+# For local development
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+
+# For containerized applications (using Docker networks)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 ```
 
 ### Sampling Configuration
@@ -262,7 +308,7 @@ use opentelemetry_sdk::trace::Sampler;
 Add custom resource attributes for better service identification:
 
 ```bash
-OTEL_RESOURCE_ATTRIBUTES="service.name=rust-kickstart,service.version=0.1.0,deployment.environment=production,k8s.cluster.name=prod-cluster,k8s.namespace.name=default"
+OTEL_RESOURCE_ATTRIBUTES="service.name=rust-api,service.version=1.0.0,deployment.environment=production,k8s.cluster.name=prod-cluster,k8s.namespace.name=default"
 ```
 
 ## Production Deployment
@@ -293,8 +339,9 @@ OTEL_RESOURCE_ATTRIBUTES="service.name=rust-kickstart,service.version=0.1.0,depl
 1. Check if observability stack is running: `docker ps`
 2. Verify OTLP endpoint: `curl http://localhost:14318/v1/traces`
 3. Check Uptrace logs: `docker logs uptrace`
-4. Check ClickHouse connectivity: `docker logs clickhouse`
-5. Verify environment variables are set correctly
+4. Check PostgreSQL connectivity: `docker logs uptrace-postgres`
+5. Check ClickHouse connectivity: `docker logs clickhouse`
+6. Verify environment variables are set correctly
 
 #### High memory usage
 1. Adjust sampling rate to reduce data volume
@@ -317,7 +364,10 @@ docker compose -f docker-compose.observability.yaml ps
 # View Uptrace logs
 docker logs uptrace
 
-# View ClickHouse logs
+# View PostgreSQL logs (Uptrace metadata)
+docker logs uptrace-postgres
+
+# View ClickHouse logs (telemetry data)
 docker logs clickhouse
 
 # View collector logs (if using collector profile)
@@ -395,9 +445,20 @@ jobs:
 For development environments, you can combine the main application with observability:
 
 ```bash
-# Start everything together
+# Start observability stack first
+make observability
+
+# Then start your application (if containerized)
+docker compose --profile app up -d
+
+# Or start everything together
 docker compose -f docker-compose.yml -f docker-compose.observability.yaml up -d
 ```
+
+**Network Configuration:**
+- Observability stack runs on `uptrace-network`
+- Main application connects to both `app-network` and `uptrace-network`
+- This allows the application to communicate with both its database and the observability stack
 
 ## Further Reading
 
