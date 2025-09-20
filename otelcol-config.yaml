@@ -12,6 +12,8 @@ processors:
     send_batch_size: 1024
   memory_limiter:
     limit_mib: 512
+    spike_limit_mib: 256
+    check_interval: 1s
 
 exporters:
   # Uptrace exporter
@@ -33,18 +35,18 @@ exporters:
 service:
   pipelines:
     traces:
-      receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlp/uptrace, debug]
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlp/uptrace, debug ]
     
     metrics:
-      receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlp/uptrace, prometheus]
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlp/uptrace, prometheus ]
     
     logs:
-      receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlp/uptrace, debug]
+      receivers: [ otlp ]
+      processors: [ memory_limiter, batch ]
+      exporters: [ otlp/uptrace, debug ]
 
-  extensions: []
+  extensions: [ ]
