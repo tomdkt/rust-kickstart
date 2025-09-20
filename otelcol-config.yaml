@@ -18,11 +18,11 @@ processors:
 exporters:
   # Uptrace exporter
   otlp/uptrace:
-    endpoint: "http://uptrace:14318"
+    endpoint: "http://uptrace:14317"
     tls:
       insecure: true
     headers:
-      uptrace-dsn: "http://project1_secret_token@uptrace:14318/1"
+      uptrace-dsn: "http://project1_secret_token@uptrace:14317/1"
 
   # Debug exporter for development
   debug:
