@@ -92,24 +92,7 @@ services:
       retries: 5
       start_period: 30s
 
-  # OpenTelemetry Collector - for advanced routing
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:${COLLECTOR_VERSION}
-    container_name: otel-collector
-    restart: unless-stopped
-    command: [ "--config=/etc/otelcol-contrib/otel-collector.yaml" ]
-    volumes:
-      - ./otelcol-config.yaml:/etc/otelcol-contrib/otel-collector.yaml:ro
-    ports:
-      - "4315:4317"   # OTLP gRPC receiver (different port to avoid conflict)
-      - "4316:4318"   # OTLP HTTP receiver (different port to avoid conflict)
-      - "8888:8888"   # Prometheus metrics
-      - "8889:8889"   # Prometheus exporter metrics
-    depends_on:
-      otel-collector-signoz:
-        condition: service_healthy
-    networks:
-      - signoz-network
+
 
 volumes:
   signoz_clickhouse_data:
