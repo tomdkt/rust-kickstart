@@ -18,7 +18,7 @@ processors:
 exporters:
   # Uptrace exporter
   otlp/uptrace:
-    endpoint: ${UPTRACE_ENDPOINT}
+    endpoint: "http://uptrace:14318"
     tls:
       insecure: true
     headers:

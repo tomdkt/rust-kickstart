@@ -80,9 +80,10 @@ services:
       - "8888:8888"   # Prometheus metrics
       - "8889:8889"   # Prometheus exporter metrics
     depends_on:
-      - uptrace
-    environment:
-      - UPTRACE_ENDPOINT=http://uptrace:14318
+      uptrace:
+        condition: service_healthy
+    networks:
+      - uptrace-network
     profiles:
       - collector
 
